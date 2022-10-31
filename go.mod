@@ -3,7 +3,7 @@ module github.com/roadrunner-server/psr-3-logger/v3
 go 1.19
 
 require (
-	go.buf.build/protocolbuffers/go/roadrunner-server/api v1.3.21
+	go.buf.build/protocolbuffers/go/roadrunner-server/api v1.3.22
 	go.uber.org/zap v1.23.0
 )
 
