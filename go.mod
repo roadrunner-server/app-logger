@@ -1,4 +1,4 @@
-module github.com/roadrunner-server/psr-3-logger/v3
+module github.com/roadrunner-server/app-logger/v3
 
 go 1.19
 
