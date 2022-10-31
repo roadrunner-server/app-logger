@@ -1,11 +1,11 @@
-package psr3
+package app
 
 import (
 	"go.uber.org/zap"
 )
 
 const (
-	name = "psr3-logger"
+	name = "app"
 )
 
 type Plugin struct {

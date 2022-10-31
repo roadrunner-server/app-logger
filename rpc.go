@@ -1,7 +1,9 @@
-package psr3
+package app
 
 import (
-	psr3v1 "go.buf.build/protocolbuffers/go/roadrunner-server/api/proto/logger/psr3/v1"
+	"io"
+	"os"
+
 	"go.uber.org/zap"
 )
 
@@ -22,62 +24,35 @@ type RPC struct {
 	log *zap.Logger
 }
 
-func (r *RPC) Emergency(in *psr3v1.Message, out *bool) error {
-	r.log.Error(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
+func (r *RPC) Error(in string, _ *bool) error {
+	r.log.Error(in)
 
 	return nil
 }
 
-func (r *RPC) Alert(in *psr3v1.Message, out *bool) error {
-	r.log.Error(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
+func (r *RPC) Info(in string, _ *bool) error {
+	r.log.Info(in)
 
 	return nil
 }
 
-func (r *RPC) Critical(in *psr3v1.Message, out *bool) error {
-	r.log.Error(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
+func (r *RPC) Warning(in string, _ *bool) error {
+	r.log.Warn(in)
 
 	return nil
 }
 
-func (r *RPC) Error(in *psr3v1.Message, out *bool) error {
-	r.log.Error(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
+func (r *RPC) Debug(in string, _ *bool) error {
+	r.log.Debug(in)
 
 	return nil
 }
 
-func (r *RPC) Warning(in *psr3v1.Message, out *bool) error {
-	r.log.Warn(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
+func (r *RPC) Log(in string, _ *bool) error {
+	_, err := io.WriteString(os.Stderr, in)
+	if err != nil {
+		return err
+	}
 
-	return nil
-}
-
-func (r *RPC) Notice(in *psr3v1.Message, out *bool) error {
-	r.log.Info(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
-
-	return nil
-}
-
-func (r *RPC) Info(in *psr3v1.Message, out *bool) error {
-	r.log.Info(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
-
-	return nil
-}
-
-func (r *RPC) Debug(in *psr3v1.Message, out *bool) error {
-	r.log.Debug(in.GetMessage(), zap.String("context", in.GetContext()))
-	*out = true
-
-	return nil
-}
-
-func (r *RPC) Log(_ *psr3v1.Message, _ *bool) error {
 	return nil
 }
