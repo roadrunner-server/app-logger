@@ -16,6 +16,7 @@ type Plugin struct {
 
 func (p *Plugin) Init(log Logger) error {
 	p.log = log.NamedLogger(name)
+
 	return nil
 }
 
