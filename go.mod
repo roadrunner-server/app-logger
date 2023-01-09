@@ -1,4 +1,4 @@
-module github.com/roadrunner-server/app-logger/v3
+module github.com/roadrunner-server/app-logger/v4
 
 go 1.19
 
