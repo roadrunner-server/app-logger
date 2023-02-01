@@ -1,6 +1,6 @@
 module github.com/roadrunner-server/app-logger/v4
 
-go 1.19
+go 1.20
 
 require go.uber.org/zap v1.24.0
 
