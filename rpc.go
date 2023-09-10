@@ -1,8 +1,11 @@
 package app
 
 import (
+	"fmt"
 	"io"
 	"os"
+
+	v1 "github.com/roadrunner-server/api/v4/build/applogger/v1"
 
 	"go.uber.org/zap"
 )
@@ -30,8 +33,20 @@ func (r *RPC) Error(in string, _ *bool) error {
 	return nil
 }
 
+func (r *RPC) Error2(in *v1.LogEntry, _ *v1.Response) error {
+	r.log.Error(in.GetMessage(), format(in.GetLogAttrs())...)
+
+	return nil
+}
+
 func (r *RPC) Info(in string, _ *bool) error {
 	r.log.Info(in)
+
+	return nil
+}
+
+func (r *RPC) Info2(in *v1.LogEntry, _ *v1.Response) error {
+	r.log.Info(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
 }
@@ -42,8 +57,20 @@ func (r *RPC) Warning(in string, _ *bool) error {
 	return nil
 }
 
+func (r *RPC) Warning2(in *v1.LogEntry, _ *v1.Response) error {
+	r.log.Warn(in.GetMessage(), format(in.GetLogAttrs())...)
+
+	return nil
+}
+
 func (r *RPC) Debug(in string, _ *bool) error {
 	r.log.Debug(in)
+
+	return nil
+}
+
+func (r *RPC) Debug2(in *v1.LogEntry, _ *v1.Response) error {
+	r.log.Debug(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
 }
@@ -55,4 +82,39 @@ func (r *RPC) Log(in string, _ *bool) error {
 	}
 
 	return nil
+}
+
+func (r *RPC) Log2(in *v1.LogEntry, _ *v1.Response) error {
+	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func formatRaw(msg string, args []*v1.LogAttrs) string {
+	res := ""
+	n := len(args) - 1
+
+	for i := 0; i < len(args); i++ {
+		if i == n {
+			res += fmt.Sprintf("%s:%s", args[i].GetKey(), args[i].GetValue())
+
+			continue
+		}
+		res += fmt.Sprintf("%s:%s,", args[i].GetKey(), args[i].GetValue())
+	}
+
+	return fmt.Sprintf("%s %s", msg, res)
+}
+
+func format(args []*v1.LogAttrs) []zap.Field {
+	fields := make([]zap.Field, 0, len(args))
+
+	for _, v := range args {
+		fields = append(fields, zap.String(v.GetValue(), v.GetValue()))
+	}
+
+	return fields
 }
