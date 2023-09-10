@@ -85,6 +85,16 @@ func (r *RPC) Log(in string, _ *bool) error {
 }
 
 func (r *RPC) Log2(in *v1.LogEntry, _ *v1.Response) error {
+	// special case when we don't have any attributes
+	if len(in.GetLogAttrs()) == 0 {
+		_, err := io.WriteString(os.Stderr, in.GetMessage())
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
 	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
 	if err != nil {
 		return err
@@ -95,18 +105,12 @@ func (r *RPC) Log2(in *v1.LogEntry, _ *v1.Response) error {
 
 func formatRaw(msg string, args []*v1.LogAttrs) string {
 	res := ""
-	n := len(args) - 1
 
 	for i := 0; i < len(args); i++ {
-		if i == n {
-			res += fmt.Sprintf("%s:%s", args[i].GetKey(), args[i].GetValue())
-
-			continue
-		}
 		res += fmt.Sprintf("%s:%s,", args[i].GetKey(), args[i].GetValue())
 	}
 
-	return fmt.Sprintf("%s %s", msg, res)
+	return fmt.Sprintf("%s %s", msg, res[:len(res)-2]) // remove last comma
 }
 
 func format(args []*v1.LogAttrs) []zap.Field {
