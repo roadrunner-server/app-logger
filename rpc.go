@@ -45,7 +45,7 @@ func (r *RPC) Info(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) Info2(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) InfoWithContext(in *v1.LogEntry, _ *v1.Response) error {
 	r.log.Info(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -57,7 +57,7 @@ func (r *RPC) Warning(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) Warning2(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) WarningWithContext(in *v1.LogEntry, _ *v1.Response) error {
 	r.log.Warn(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -69,7 +69,7 @@ func (r *RPC) Debug(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) Debug2(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) DebugWithContext(in *v1.LogEntry, _ *v1.Response) error {
 	r.log.Debug(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -84,7 +84,7 @@ func (r *RPC) Log(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) Log2(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) LogWithContext(in *v1.LogEntry, _ *v1.Response) error {
 	// special case when we don't have any attributes
 	if len(in.GetLogAttrs()) == 0 {
 		_, err := io.WriteString(os.Stderr, in.GetMessage())
