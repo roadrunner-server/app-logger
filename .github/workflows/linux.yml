@@ -11,8 +11,8 @@ on:
       - stable
 
 jobs:
-  amqp_test:
-    name: RabbitMQ plugin (Go ${{ matrix.go }}, PHP ${{ matrix.php }}, OS ${{matrix.os}})
+  applogger_test:
+    name: AppLogger plugin (Go ${{ matrix.go }}, PHP ${{ matrix.php }}, OS ${{matrix.os}})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -61,6 +61,7 @@ jobs:
 
       - name: Run golang tests with coverage
         run: |
+          cd tests
           mkdir ./coverage-ci
           go test -timeout 20m -v -race -cover -tags=debug -failfast -coverpkg=$(cat pkgs.txt) -coverprofile=./coverage-ci/applogger.out -covermode=atomic ./...
 
