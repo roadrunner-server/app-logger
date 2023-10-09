@@ -7,7 +7,7 @@ toolchain go1.21.1
 require (
 	github.com/roadrunner-server/app-logger/v4 v4.2.1
 	github.com/roadrunner-server/config/v4 v4.4.6
-	github.com/roadrunner-server/endure/v2 v2.4.2
+	github.com/roadrunner-server/endure/v2 v2.4.3
 	github.com/roadrunner-server/http/v4 v4.4.2
 	github.com/roadrunner-server/rpc/v4 v4.2.5
 	github.com/roadrunner-server/server/v4 v4.4.2
