@@ -33,7 +33,7 @@ func (r *RPC) Error(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) Error2(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) ErrorWithContext(in *v1.LogEntry, _ *v1.Response) error {
 	r.log.Error(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
