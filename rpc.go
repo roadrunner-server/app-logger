@@ -117,7 +117,7 @@ func format(args []*v1.LogAttrs) []zap.Field {
 	fields := make([]zap.Field, 0, len(args))
 
 	for _, v := range args {
-		fields = append(fields, zap.String(v.GetValue(), v.GetValue()))
+		fields = append(fields, zap.String(v.GetKey(), v.GetValue()))
 	}
 
 	return fields
