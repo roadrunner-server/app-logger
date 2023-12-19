@@ -2,11 +2,16 @@ module github.com/roadrunner-server/app-logger/v4
 
 go 1.21
 
-toolchain go1.21.0
+toolchain go1.21.5
 
 require (
 	github.com/roadrunner-server/api/v4 v4.10.0
 	go.uber.org/zap v1.26.0
+)
+
+exclude (
+	github.com/spf13/viper v1.18.0
+	github.com/spf13/viper v1.18.1
 )
 
 require (
