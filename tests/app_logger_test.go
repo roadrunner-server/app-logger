@@ -58,11 +58,13 @@ func TestAppLogger(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
+
 		for {
 			select {
 			case e := <-ch:
 				assert.Fail(t, "error", e.Error.Error())
 				err = container.Stop()
+
 				if err != nil {
 					assert.FailNow(t, "error", err.Error())
 				}
@@ -86,6 +88,7 @@ func TestAppLogger(t *testing.T) {
 
 	time.Sleep(time.Second * 2)
 	stopCh <- struct{}{}
+
 	wg.Wait()
 
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Debug message").Len())

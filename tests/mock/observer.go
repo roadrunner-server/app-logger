@@ -41,6 +41,7 @@ func (e LoggedEntry) ContextMap() map[string]any {
 	for _, f := range e.Context {
 		f.AddTo(encoder)
 	}
+
 	return encoder.Fields
 }
 
@@ -55,6 +56,7 @@ func (o *ObservedLogs) Len() int {
 	o.mu.RLock()
 	n := len(o.logs)
 	o.mu.RUnlock()
+
 	return n
 }
 
@@ -64,6 +66,7 @@ func (o *ObservedLogs) All() []LoggedEntry {
 	ret := make([]LoggedEntry, len(o.logs))
 	copy(ret, o.logs)
 	o.mu.RUnlock()
+
 	return ret
 }
 
@@ -74,6 +77,7 @@ func (o *ObservedLogs) TakeAll() []LoggedEntry {
 	ret := o.logs
 	o.logs = nil
 	o.mu.Unlock()
+
 	return ret
 }
 
@@ -85,6 +89,7 @@ func (o *ObservedLogs) AllUntimed() []LoggedEntry {
 	for i := range ret {
 		ret[i].Time = time.Time{}
 	}
+
 	return ret
 }
 
@@ -117,6 +122,7 @@ func (o *ObservedLogs) FilterField(field zapcore.Field) *ObservedLogs {
 				return true
 			}
 		}
+
 		return false
 	})
 }
@@ -129,6 +135,7 @@ func (o *ObservedLogs) FilterFieldKey(key string) *ObservedLogs {
 				return true
 			}
 		}
+
 		return false
 	})
 }
@@ -140,11 +147,13 @@ func (o *ObservedLogs) Filter(keep func(LoggedEntry) bool) *ObservedLogs {
 	defer o.mu.RUnlock()
 
 	var filtered []LoggedEntry
+
 	for _, entry := range o.logs {
 		if keep(entry) {
 			filtered = append(filtered, entry)
 		}
 	}
+
 	return &ObservedLogs{logs: filtered}
 }
 
@@ -158,6 +167,7 @@ func (o *ObservedLogs) add(log LoggedEntry) {
 // It's particularly useful in tests.
 func New(enab zapcore.LevelEnabler) (zapcore.Core, *ObservedLogs) {
 	ol := &ObservedLogs{}
+
 	return &contextObserver{
 		LevelEnabler: enab,
 		logs:         ol,
@@ -174,6 +184,7 @@ func (co *contextObserver) Check(ent zapcore.Entry, ce *zapcore.CheckedEntry) *z
 	if co.Enabled(ent.Level) {
 		return ce.AddCore(ent, co)
 	}
+
 	return ce
 }
 
