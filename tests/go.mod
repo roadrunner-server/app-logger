@@ -8,7 +8,7 @@ require (
 	github.com/roadrunner-server/endure/v2 v2.4.4
 	github.com/roadrunner-server/http/v4 v4.6.0
 	github.com/roadrunner-server/rpc/v4 v4.3.0
-	github.com/roadrunner-server/server/v4 v4.6.0
+	github.com/roadrunner-server/server/v4 v4.7.0
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
 )
