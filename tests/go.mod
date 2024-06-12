@@ -4,11 +4,11 @@ go 1.22.4
 
 require (
 	github.com/roadrunner-server/app-logger/v4 v4.2.13
-	github.com/roadrunner-server/config/v4 v4.9.0
+	github.com/roadrunner-server/config/v4 v4.9.1
 	github.com/roadrunner-server/endure/v2 v2.4.5
-	github.com/roadrunner-server/http/v4 v4.7.4
-	github.com/roadrunner-server/rpc/v4 v4.4.2
-	github.com/roadrunner-server/server/v4 v4.8.2
+	github.com/roadrunner-server/http/v4 v4.7.5
+	github.com/roadrunner-server/rpc/v4 v4.4.3
+	github.com/roadrunner-server/server/v4 v4.8.3
 	github.com/stretchr/testify v1.9.0
 	go.uber.org/zap v1.27.0
 )
@@ -32,7 +32,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/libdns/libdns v0.2.2 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mholt/acmez v1.2.0 // indirect
@@ -83,7 +83,7 @@ require (
 	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	golang.org/x/tools v0.22.0 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
