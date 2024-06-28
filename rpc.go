@@ -7,6 +7,8 @@ import (
 
 	v1 "github.com/roadrunner-server/api/v4/build/applogger/v1"
 
+	"encoding/json"
+
 	"go.uber.org/zap"
 )
 
@@ -25,6 +27,7 @@ public function log($level, $message, array $context = array());
 
 type RPC struct {
 	log *zap.Logger
+	cfg *Config
 }
 
 func (r *RPC) Error(in string, _ *bool) error {
@@ -34,7 +37,7 @@ func (r *RPC) Error(in string, _ *bool) error {
 }
 
 func (r *RPC) ErrorWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Error(in.GetMessage(), format(in.GetLogAttrs())...)
+	r.log.Error(in.GetMessage(), r.format(in.GetLogAttrs())...)
 
 	return nil
 }
@@ -46,7 +49,7 @@ func (r *RPC) Info(in string, _ *bool) error {
 }
 
 func (r *RPC) InfoWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Info(in.GetMessage(), format(in.GetLogAttrs())...)
+	r.log.Info(in.GetMessage(), r.format(in.GetLogAttrs())...)
 
 	return nil
 }
@@ -58,7 +61,7 @@ func (r *RPC) Warning(in string, _ *bool) error {
 }
 
 func (r *RPC) WarningWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Warn(in.GetMessage(), format(in.GetLogAttrs())...)
+	r.log.Warn(in.GetMessage(), r.format(in.GetLogAttrs())...)
 
 	return nil
 }
@@ -70,7 +73,7 @@ func (r *RPC) Debug(in string, _ *bool) error {
 }
 
 func (r *RPC) DebugWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Debug(in.GetMessage(), format(in.GetLogAttrs())...)
+	r.log.Debug(in.GetMessage(), r.format(in.GetLogAttrs())...)
 
 	return nil
 }
@@ -113,11 +116,24 @@ func formatRaw(msg string, args []*v1.LogAttrs) string {
 	return fmt.Sprintf("%s %s", msg, res[:len(res)-2]) // remove last comma
 }
 
-func format(args []*v1.LogAttrs) []zap.Field {
+func (r *RPC) format(args []*v1.LogAttrs) []zap.Field {
 	fields := make([]zap.Field, 0, len(args))
 
 	for _, v := range args {
-		fields = append(fields, zap.String(v.GetKey(), v.GetValue()))
+		if r.cfg.AllowUnstructuredContext == true {
+			var f interface{}
+			data := []byte(v.GetValue())
+
+			err := json.Unmarshal(data, &f)
+
+			if err != nil {
+				fields = append(fields, zap.String(v.GetKey(), v.GetValue()))
+			} else {
+				fields = append(fields, zap.Any(v.GetKey(), f))
+			}
+		} else {
+			fields = append(fields, zap.String(v.GetKey(), v.GetValue()))
+		}
 	}
 
 	return fields

@@ -94,5 +94,87 @@ func TestAppLogger(t *testing.T) {
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Debug message").Len())
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Error message").Len())
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Info message").Len())
+	assert.Equal(t, map[string]any{
+		"app": "{\"aaa\":\"bbb\"}",
+	}, oLogger.FilterMessageSnippet("Info message").All()[0].ContextMap())
+	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Warning message").Len())
+}
+
+func TestAppLoggerWIthParsingJson(t *testing.T) {
+	container := endure.New(slog.LevelDebug)
+
+	vp := &configImpl.Plugin{}
+	vp.Path = "configs/.rr-appl-allow-unstructured-context.yaml"
+	vp.Prefix = "rr"
+	vp.Version = "v2023.1.0"
+
+	l, oLogger := mocklogger.ZapTestLogger(zap.DebugLevel)
+	err := container.RegisterAll(
+		&rpc.Plugin{},
+		&applogger.Plugin{},
+		l,
+		&server.Plugin{},
+		&http.Plugin{},
+		vp,
+	)
+
+	require.NoError(t, err)
+
+	err = container.Init()
+	require.NoError(t, err)
+
+	ch, err := container.Serve()
+	assert.NoError(t, err)
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	stopCh := make(chan struct{}, 1)
+
+	go func() {
+		defer wg.Done()
+
+		for {
+			select {
+			case e := <-ch:
+				assert.Fail(t, "error", e.Error.Error())
+				err = container.Stop()
+
+				if err != nil {
+					assert.FailNow(t, "error", err.Error())
+				}
+				return
+			case <-sig:
+				err = container.Stop()
+				if err != nil {
+					assert.FailNow(t, "error", err.Error())
+				}
+				return
+			case <-stopCh:
+				// timeout
+				err = container.Stop()
+				if err != nil {
+					assert.FailNow(t, "error", err.Error())
+				}
+				return
+			}
+		}
+	}()
+
+	time.Sleep(time.Second * 2)
+	stopCh <- struct{}{}
+
+	wg.Wait()
+
+	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Debug message").Len())
+	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Error message").Len())
+	assert.Equal(t, map[string]any{
+		"app": map[string]any{
+			"aaa": "bbb",
+		},
+	}, oLogger.FilterMessageSnippet("Info message").All()[0].ContextMap())
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Warning message").Len())
 }

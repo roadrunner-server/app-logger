@@ -17,7 +17,7 @@
     "php-http/guzzle6-adapter": "~2",
     "spiral/goridge": "^4.0",
     "roadrunner-php/centrifugo": "^2.0",
-    "roadrunner-php/app-logger": "^1.0",
+    "roadrunner-php/app-logger": "^1.2",
     "open-telemetry/sdk": "^0.0.10",
     "psr/http-factory": "^1.0",
     "php-http/message-factory": "^1.1",

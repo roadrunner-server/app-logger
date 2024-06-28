@@ -32,7 +32,7 @@ $logger->log("Log message \n");
 /**
  * info mapped to RR's info logger
  */
-$logger->info('Info message');
+$logger->info('Info message', ['app' => ['aaa' => 'bbb']]);
 
 /**
  * warning mapped to RR's warning logger
