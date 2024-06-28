@@ -1,5 +1,5 @@
 package app
 
 type Config struct {
-	AllowUnstructuredContext bool `mapstructure:"allow_unstructured_context"`
+	ContextJsonUnwrap bool `mapstructure:"context_json_unwrap"`
 }

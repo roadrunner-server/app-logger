@@ -16,4 +16,4 @@ logs:
   level: debug
 
 app-logger:
-  allow_unstructured_context: true
+  context_json_unwrap: true
