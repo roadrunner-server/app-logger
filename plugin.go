@@ -26,12 +26,14 @@ type Configurer interface {
 }
 
 func (p *Plugin) Init(cfg Configurer, log Logger) error {
-	const op = errors.Op("grpc_plugin_init")
-	const configSection = "app-logger"
+	const (
+		op            = errors.Op("app_plugin_init")
+		configSection = "app-logger"
+	)
 
 	p.log = log.NamedLogger(pluginName)
-
 	p.config = &Config{}
+
 	err := cfg.UnmarshalKey(configSection, &p.config)
 	if err != nil {
 		return errors.E(op, err)

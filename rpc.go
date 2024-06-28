@@ -37,7 +37,7 @@ func (r *RPC) Error(in string, _ *bool) error {
 }
 
 func (r *RPC) ErrorWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Error(in.GetMessage(), format(r.cfg.ContextJsonUnwrap, in.GetLogAttrs())...)
+	r.log.Error(in.GetMessage(), format(r.cfg.ContextJSONUnwrap, in.GetLogAttrs())...)
 
 	return nil
 }
@@ -49,7 +49,7 @@ func (r *RPC) Info(in string, _ *bool) error {
 }
 
 func (r *RPC) InfoWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Info(in.GetMessage(), format(r.cfg.ContextJsonUnwrap, in.GetLogAttrs())...)
+	r.log.Info(in.GetMessage(), format(r.cfg.ContextJSONUnwrap, in.GetLogAttrs())...)
 
 	return nil
 }
@@ -61,7 +61,7 @@ func (r *RPC) Warning(in string, _ *bool) error {
 }
 
 func (r *RPC) WarningWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Warn(in.GetMessage(), format(r.cfg.ContextJsonUnwrap, in.GetLogAttrs())...)
+	r.log.Warn(in.GetMessage(), format(r.cfg.ContextJSONUnwrap, in.GetLogAttrs())...)
 
 	return nil
 }
@@ -73,7 +73,7 @@ func (r *RPC) Debug(in string, _ *bool) error {
 }
 
 func (r *RPC) DebugWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	r.log.Debug(in.GetMessage(), format(r.cfg.ContextJsonUnwrap, in.GetLogAttrs())...)
+	r.log.Debug(in.GetMessage(), format(r.cfg.ContextJSONUnwrap, in.GetLogAttrs())...)
 
 	return nil
 }
@@ -116,11 +116,11 @@ func formatRaw(msg string, args []*v1.LogAttrs) string {
 	return fmt.Sprintf("%s %s", msg, res[:len(res)-2]) // remove last comma
 }
 
-func format(AllowUnstructuredContext bool, args []*v1.LogAttrs) []zap.Field {
+func format(contextJSONUnwrap bool, args []*v1.LogAttrs) []zap.Field {
 	fields := make([]zap.Field, 0, len(args))
 
 	for _, v := range args {
-		if AllowUnstructuredContext == true {
+		if contextJSONUnwrap {
 			var f any
 			data := []byte(v.GetValue())
 			err := json.Unmarshal(data, &f)
