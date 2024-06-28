@@ -15,5 +15,5 @@ logs:
   mode: development
   level: debug
 
-app:
+app-logger:
   allow_unstructured_context: true

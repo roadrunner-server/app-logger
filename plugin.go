@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/roadrunner-server/errors"
 	"go.uber.org/zap"
 )
 
@@ -25,12 +26,15 @@ type Configurer interface {
 }
 
 func (p *Plugin) Init(cfg Configurer, log Logger) error {
+	const op = errors.Op("grpc_plugin_init")
+	const configSection = "app-logger"
+
 	p.log = log.NamedLogger(pluginName)
 
 	p.config = &Config{}
-	err := cfg.UnmarshalKey(pluginName, &p.config)
+	err := cfg.UnmarshalKey(configSection, &p.config)
 	if err != nil {
-		return err
+		return errors.E(op, err)
 	}
 
 	return nil
