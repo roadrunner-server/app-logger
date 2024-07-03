@@ -11,7 +11,7 @@ import (
 
 	mocklogger "tests/mock"
 
-	applogger "github.com/roadrunner-server/app-logger/v4"
+	applogger "github.com/roadrunner-server/app-logger/v5"
 	configImpl "github.com/roadrunner-server/config/v4"
 	"github.com/roadrunner-server/endure/v2"
 	"github.com/roadrunner-server/http/v4"
