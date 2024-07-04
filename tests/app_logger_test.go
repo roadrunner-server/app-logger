@@ -27,7 +27,6 @@ func TestAppLogger(t *testing.T) {
 
 	vp := &configImpl.Plugin{}
 	vp.Path = "configs/.rr-appl.yaml"
-	vp.Prefix = "rr"
 	vp.Version = "v2023.1.0"
 
 	l, oLogger := mocklogger.ZapTestLogger(zap.DebugLevel)
