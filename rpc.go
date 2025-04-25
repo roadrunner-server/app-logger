@@ -106,7 +106,7 @@ func (r *RPC) LogWithContext(in *v1.LogEntry, _ *v1.Response) error {
 func formatRaw(msg string, args []*v1.LogAttrs) string {
 	res := ""
 
-	for i := 0; i < len(args); i++ {
+	for i := range args {
 		res += fmt.Sprintf("%s:%s,", args[i].GetKey(), args[i].GetValue())
 	}
 
