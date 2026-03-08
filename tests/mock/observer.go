@@ -21,6 +21,7 @@ package mocklogger
 // THE SOFTWARE.
 
 import (
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -63,8 +64,7 @@ func (o *ObservedLogs) Len() int {
 // All returns a copy of all the observed logs.
 func (o *ObservedLogs) All() []LoggedEntry {
 	o.mu.RLock()
-	ret := make([]LoggedEntry, len(o.logs))
-	copy(ret, o.logs)
+	ret := slices.Clone(o.logs)
 	o.mu.RUnlock()
 
 	return ret
@@ -192,14 +192,12 @@ func (co *contextObserver) With(fields []zapcore.Field) zapcore.Core {
 	return &contextObserver{
 		LevelEnabler: co.LevelEnabler,
 		logs:         co.logs,
-		context:      append(co.context[:len(co.context):len(co.context)], fields...),
+		context:      append(slices.Clone(co.context), fields...),
 	}
 }
 
 func (co *contextObserver) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	all := make([]zapcore.Field, 0, len(fields)+len(co.context))
-	all = append(all, co.context...)
-	all = append(all, fields...)
+	all := slices.Concat(co.context, fields)
 	co.logs.add(LoggedEntry{ent, all})
 
 	return nil

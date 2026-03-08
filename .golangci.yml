@@ -26,7 +26,6 @@ linters:
     - misspell
     - nakedret
     - nestif
-    - nlreturn
     - noctx
     - nolintlint
     - prealloc
@@ -37,7 +36,6 @@ linters:
     - unparam
     - unused
     - whitespace
-    - wsl_v5
   settings:
     dupl:
       threshold: 100
@@ -59,12 +57,6 @@ linters:
       simple: true
       range-loops: true
       for-loops: true
-    wsl_v5:
-      allow-first-in-block: true
-      allow-whole-block: false
-      branch-max-lines: 2
-      disable:
-        - assign
   exclusions:
     generated: lax
     presets:

@@ -1,11 +1,11 @@
 package app
 
 import (
-	"fmt"
 	"io"
 	"os"
+	"strings"
 
-	v1 "github.com/roadrunner-server/api/v4/build/applogger/v1"
+	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 
 	"go.uber.org/zap"
 )
@@ -33,7 +33,7 @@ func (r *RPC) Error(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) ErrorWithContext(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) ErrorWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 	r.log.Error(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -45,7 +45,7 @@ func (r *RPC) Info(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) InfoWithContext(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) InfoWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 	r.log.Info(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -57,7 +57,7 @@ func (r *RPC) Warning(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) WarningWithContext(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) WarningWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 	r.log.Warn(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -69,7 +69,7 @@ func (r *RPC) Debug(in string, _ *bool) error {
 	return nil
 }
 
-func (r *RPC) DebugWithContext(in *v1.LogEntry, _ *v1.Response) error {
+func (r *RPC) DebugWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 	r.log.Debug(in.GetMessage(), format(in.GetLogAttrs())...)
 
 	return nil
@@ -77,43 +77,34 @@ func (r *RPC) DebugWithContext(in *v1.LogEntry, _ *v1.Response) error {
 
 func (r *RPC) Log(in string, _ *bool) error {
 	_, err := io.WriteString(os.Stderr, in)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
-func (r *RPC) LogWithContext(in *v1.LogEntry, _ *v1.Response) error {
-	// special case when we don't have any attributes
-	if len(in.GetLogAttrs()) == 0 {
-		_, err := io.WriteString(os.Stderr, in.GetMessage())
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
+func (r *RPC) LogWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
-func formatRaw(msg string, args []*v1.LogAttrs) string {
-	res := ""
-
-	for i := range args {
-		res += fmt.Sprintf("%s:%s,", args[i].GetKey(), args[i].GetValue())
+func formatRaw(msg string, args []*v2.LogAttrs) string {
+	if len(args) == 0 {
+		return msg
 	}
 
-	return fmt.Sprintf("%s %s", msg, res[:len(res)-2]) // remove last comma
+	var b strings.Builder
+	b.WriteString(msg)
+	b.WriteByte(' ')
+	for i, a := range args {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(a.GetKey())
+		b.WriteByte(':')
+		b.WriteString(a.GetValue())
+	}
+	return b.String()
 }
 
-func format(args []*v1.LogAttrs) []zap.Field {
+func format(args []*v2.LogAttrs) []zap.Field {
 	fields := make([]zap.Field, 0, len(args))
 
 	for _, v := range args {
