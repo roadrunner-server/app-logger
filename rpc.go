@@ -77,30 +77,18 @@ func (r *RPC) DebugWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 
 func (r *RPC) Log(in string, _ *bool) error {
 	_, err := io.WriteString(os.Stderr, in)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (r *RPC) LogWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
 	// special case when we don't have any attributes
 	if len(in.GetLogAttrs()) == 0 {
 		_, err := io.WriteString(os.Stderr, in.GetMessage())
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
-	if err != nil {
 		return err
 	}
 
-	return nil
+	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
+	return err
 }
 
 func formatRaw(msg string, args []*v2.LogAttrs) string {
@@ -109,7 +97,7 @@ func formatRaw(msg string, args []*v2.LogAttrs) string {
 		buf = fmt.Appendf(buf, "%s:%s,", a.GetKey(), a.GetValue())
 	}
 
-	return fmt.Sprintf("%s %s", msg, buf[:len(buf)-1])
+	return msg + " " + string(buf[:len(buf)-1])
 }
 
 func format(args []*v2.LogAttrs) []zap.Field {
