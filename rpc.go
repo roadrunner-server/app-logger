@@ -1,9 +1,9 @@
 package app
 
 import (
-	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 
@@ -81,23 +81,27 @@ func (r *RPC) Log(in string, _ *bool) error {
 }
 
 func (r *RPC) LogWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	// special case when we don't have any attributes
-	if len(in.GetLogAttrs()) == 0 {
-		_, err := io.WriteString(os.Stderr, in.GetMessage())
-		return err
-	}
-
 	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
 	return err
 }
 
 func formatRaw(msg string, args []*v2.LogAttrs) string {
-	var buf []byte
-	for _, a := range args {
-		buf = fmt.Appendf(buf, "%s:%s,", a.GetKey(), a.GetValue())
+	if len(args) == 0 {
+		return msg
 	}
 
-	return msg + " " + string(buf[:len(buf)-1])
+	var b strings.Builder
+	b.WriteString(msg)
+	b.WriteByte(' ')
+	for i, a := range args {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(a.GetKey())
+		b.WriteByte(':')
+		b.WriteString(a.GetValue())
+	}
+	return b.String()
 }
 
 func format(args []*v2.LogAttrs) []zap.Field {

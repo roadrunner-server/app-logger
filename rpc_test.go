@@ -39,6 +39,18 @@ func TestFormatRaw(t *testing.T) {
 		want string
 	}{
 		{
+			name: "nil args",
+			msg:  "hello",
+			args: nil,
+			want: "hello",
+		},
+		{
+			name: "empty args",
+			msg:  "hello",
+			args: []*v2.LogAttrs{},
+			want: "hello",
+		},
+		{
 			name: "single attr",
 			msg:  "hello",
 			args: []*v2.LogAttrs{{Key: "k1", Value: "v1"}},
