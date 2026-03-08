@@ -22,11 +22,16 @@ func captureStderr(t *testing.T, fn func()) string {
 	r, w, err := os.Pipe()
 	require.NoError(t, err)
 
+	defer func() {
+		_ = w.Close() // no-op if already closed below
+		os.Stderr = old
+		_ = r.Close()
+	}()
+
 	os.Stderr = w
 	fn()
 	_ = w.Close()
 	out, _ := io.ReadAll(r)
-	os.Stderr = old
 
 	return string(out)
 }
