@@ -5,7 +5,7 @@ go 1.26
 toolchain go1.26.0
 
 require (
-	github.com/roadrunner-server/app-logger/v5 v5.1.9
+	github.com/roadrunner-server/app-logger/v6 v6.0.0
 	github.com/roadrunner-server/config/v5 v5.1.9
 	github.com/roadrunner-server/endure/v2 v2.6.2
 	github.com/roadrunner-server/http/v5 v5.3.0
@@ -15,7 +15,7 @@ require (
 	go.uber.org/zap v1.27.1
 )
 
-replace github.com/roadrunner-server/app-logger/v5 => ../
+replace github.com/roadrunner-server/app-logger/v6 => ../
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
