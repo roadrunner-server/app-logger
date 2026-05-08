@@ -2,12 +2,11 @@ package app
 
 import (
 	"io"
+	"log/slog"
 	"os"
 	"strings"
 
 	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
-
-	"go.uber.org/zap"
 )
 
 /*
@@ -24,7 +23,7 @@ public function log($level, $message, array $context = array());
 */
 
 type RPC struct {
-	log *zap.Logger
+	log *slog.Logger
 }
 
 func (r *RPC) Error(in string, _ *bool) error {
@@ -104,11 +103,11 @@ func formatRaw(msg string, args []*v2.LogAttrs) string {
 	return b.String()
 }
 
-func format(args []*v2.LogAttrs) []zap.Field {
-	fields := make([]zap.Field, 0, len(args))
+func format(args []*v2.LogAttrs) []any {
+	fields := make([]any, 0, len(args)*2)
 
 	for _, v := range args {
-		fields = append(fields, zap.String(v.GetKey(), v.GetValue()))
+		fields = append(fields, v.GetKey(), v.GetValue())
 	}
 
 	return fields

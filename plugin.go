@@ -1,17 +1,17 @@
 package app
 
 import (
-	"go.uber.org/zap"
+	"log/slog"
 )
 
 const pluginName = "app"
 
 type Logger interface {
-	NamedLogger(name string) *zap.Logger
+	NamedLogger(name string) *slog.Logger
 }
 
 type Plugin struct {
-	log *zap.Logger
+	log *slog.Logger
 }
 
 func (p *Plugin) Init(log Logger) error {

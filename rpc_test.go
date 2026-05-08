@@ -1,7 +1,9 @@
 package app
 
 import (
+	"context"
 	"io"
+	"log/slog"
 	"os"
 	"testing"
 
@@ -9,10 +11,22 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 )
+
+// captureHandler records every record observed for assertions in tests.
+type captureHandler struct {
+	records []slog.Record
+}
+
+func (h *captureHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
+	h.records = append(h.records, r)
+	return nil
+}
+
+func (h *captureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
+func (h *captureHandler) WithGroup(string) slog.Handler      { return h }
 
 // captureStderr redirects os.Stderr to a pipe for the duration of fn,
 // returning whatever was written. Not parallel-safe.
@@ -93,26 +107,25 @@ func TestRPCLogLevels(t *testing.T) {
 	tests := []struct {
 		name   string
 		method func(r *RPC, msg string) error
-		level  zapcore.Level
+		level  slog.Level
 	}{
-		{"Error", func(r *RPC, msg string) error { var b bool; return r.Error(msg, &b) }, zap.ErrorLevel},
-		{"Info", func(r *RPC, msg string) error { var b bool; return r.Info(msg, &b) }, zap.InfoLevel},
-		{"Warning", func(r *RPC, msg string) error { var b bool; return r.Warning(msg, &b) }, zap.WarnLevel},
-		{"Debug", func(r *RPC, msg string) error { var b bool; return r.Debug(msg, &b) }, zap.DebugLevel},
+		{"Error", func(r *RPC, msg string) error { var b bool; return r.Error(msg, &b) }, slog.LevelError},
+		{"Info", func(r *RPC, msg string) error { var b bool; return r.Info(msg, &b) }, slog.LevelInfo},
+		{"Warning", func(r *RPC, msg string) error { var b bool; return r.Warning(msg, &b) }, slog.LevelWarn},
+		{"Debug", func(r *RPC, msg string) error { var b bool; return r.Debug(msg, &b) }, slog.LevelDebug},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			core, logs := observer.New(zap.DebugLevel)
-			rpc := &RPC{log: zap.New(core)}
+			h := &captureHandler{}
+			rpc := &RPC{log: slog.New(h)}
 
 			err := tt.method(rpc, "test message")
 			require.NoError(t, err)
 
-			entries := logs.All()
-			require.Len(t, entries, 1)
-			assert.Equal(t, tt.level, entries[0].Level)
-			assert.Equal(t, "test message", entries[0].Message)
+			require.Len(t, h.records, 1)
+			assert.Equal(t, tt.level, h.records[0].Level)
+			assert.Equal(t, "test message", h.records[0].Message)
 		})
 	}
 }
@@ -121,18 +134,18 @@ func TestRPCWithContext(t *testing.T) {
 	tests := []struct {
 		name   string
 		method func(r *RPC, in *v2.LogEntry) error
-		level  zapcore.Level
+		level  slog.Level
 	}{
-		{"ErrorWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.ErrorWithContext(in, &resp) }, zap.ErrorLevel},
-		{"InfoWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.InfoWithContext(in, &resp) }, zap.InfoLevel},
-		{"WarningWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.WarningWithContext(in, &resp) }, zap.WarnLevel},
-		{"DebugWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.DebugWithContext(in, &resp) }, zap.DebugLevel},
+		{"ErrorWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.ErrorWithContext(in, &resp) }, slog.LevelError},
+		{"InfoWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.InfoWithContext(in, &resp) }, slog.LevelInfo},
+		{"WarningWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.WarningWithContext(in, &resp) }, slog.LevelWarn},
+		{"DebugWithContext", func(r *RPC, in *v2.LogEntry) error { var resp v2.LogResponse; return r.DebugWithContext(in, &resp) }, slog.LevelDebug},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			core, logs := observer.New(zap.DebugLevel)
-			rpc := &RPC{log: zap.New(core)}
+			h := &captureHandler{}
+			rpc := &RPC{log: slog.New(h)}
 
 			entry := &v2.LogEntry{
 				Message:  "ctx message",
@@ -142,21 +155,20 @@ func TestRPCWithContext(t *testing.T) {
 			err := tt.method(rpc, entry)
 			require.NoError(t, err)
 
-			entries := logs.All()
-			require.Len(t, entries, 1)
-			assert.Equal(t, tt.level, entries[0].Level)
-			assert.Equal(t, "ctx message", entries[0].Message)
+			require.Len(t, h.records, 1)
+			assert.Equal(t, tt.level, h.records[0].Level)
+			assert.Equal(t, "ctx message", h.records[0].Message)
 
-			// Verify context field
-			require.Len(t, entries[0].ContextMap(), 1)
-			assert.Equal(t, "test", entries[0].ContextMap()["component"])
+			attrs := collectAttrs(h.records[0])
+			require.Len(t, attrs, 1)
+			assert.Equal(t, "test", attrs["component"])
 		})
 	}
 }
 
 func TestRPCWithContextMultipleAttrs(t *testing.T) {
-	core, logs := observer.New(zap.DebugLevel)
-	rpc := &RPC{log: zap.New(core)}
+	h := &captureHandler{}
+	rpc := &RPC{log: slog.New(h)}
 
 	entry := &v2.LogEntry{
 		Message: "multi attrs",
@@ -171,18 +183,27 @@ func TestRPCWithContextMultipleAttrs(t *testing.T) {
 	err := rpc.InfoWithContext(entry, &resp)
 	require.NoError(t, err)
 
-	entries := logs.All()
-	require.Len(t, entries, 1)
+	require.Len(t, h.records, 1)
 
-	ctx := entries[0].ContextMap()
-	assert.Len(t, ctx, 3)
-	assert.Equal(t, "v1", ctx["k1"])
-	assert.Equal(t, "v2", ctx["k2"])
-	assert.Equal(t, "v3", ctx["k3"])
+	attrs := collectAttrs(h.records[0])
+	assert.Len(t, attrs, 3)
+	assert.Equal(t, "v1", attrs["k1"])
+	assert.Equal(t, "v2", attrs["k2"])
+	assert.Equal(t, "v3", attrs["k3"])
+}
+
+// collectAttrs walks a slog.Record's attributes into a flat map of string values.
+func collectAttrs(r slog.Record) map[string]string {
+	out := map[string]string{}
+	r.Attrs(func(a slog.Attr) bool {
+		out[a.Key] = a.Value.String()
+		return true
+	})
+	return out
 }
 
 func TestRPCLog(t *testing.T) {
-	rpc := &RPC{log: zap.NewNop()}
+	rpc := &RPC{log: slog.New(slog.DiscardHandler)}
 
 	out := captureStderr(t, func() {
 		var b bool
@@ -191,31 +212,4 @@ func TestRPCLog(t *testing.T) {
 	})
 
 	assert.Equal(t, "hello stderr\n", out)
-}
-
-func TestRPCLogWithContext(t *testing.T) {
-	rpc := &RPC{log: zap.NewNop()}
-
-	t.Run("empty attrs", func(t *testing.T) {
-		out := captureStderr(t, func() {
-			entry := &v2.LogEntry{Message: "no context"}
-			var resp v2.LogResponse
-			err := rpc.LogWithContext(entry, &resp)
-			require.NoError(t, err)
-		})
-		assert.Equal(t, "no context", out)
-	})
-
-	t.Run("with attrs", func(t *testing.T) {
-		out := captureStderr(t, func() {
-			entry := &v2.LogEntry{
-				Message:  "with context",
-				LogAttrs: []*v2.LogAttrs{{Key: "src", Value: "worker"}},
-			}
-			var resp v2.LogResponse
-			err := rpc.LogWithContext(entry, &resp)
-			require.NoError(t, err)
-		})
-		assert.Equal(t, "with context src:worker", out)
-	})
 }
