@@ -5,9 +5,9 @@ go 1.26
 toolchain go1.26.0
 
 require (
-	github.com/roadrunner-server/api-go/v6 v6.0.0-beta.1
+	github.com/roadrunner-server/api-go/v6 v6.0.0-beta.4
 	github.com/stretchr/testify v1.11.1
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 )
 
 exclude (
