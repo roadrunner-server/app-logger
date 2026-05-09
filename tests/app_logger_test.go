@@ -19,7 +19,6 @@ import (
 	"github.com/roadrunner-server/server/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func TestAppLogger(t *testing.T) {
@@ -29,7 +28,7 @@ func TestAppLogger(t *testing.T) {
 	vp.Path = "configs/.rr-appl.yaml"
 	vp.Version = "v2023.1.0"
 
-	l, oLogger := mocklogger.ZapTestLogger(zap.DebugLevel)
+	l, oLogger := mocklogger.SlogTestLogger(slog.LevelDebug)
 	err := container.RegisterAll(
 		&rpc.Plugin{},
 		&applogger.Plugin{},
@@ -99,7 +98,7 @@ func TestAppLoggerWithContext(t *testing.T) {
 	vp.Path = "configs/.rr-appl-context.yaml"
 	vp.Version = "v2023.1.0"
 
-	l, oLogger := mocklogger.ZapTestLogger(zap.DebugLevel)
+	l, oLogger := mocklogger.SlogTestLogger(slog.LevelDebug)
 	err := container.RegisterAll(
 		&rpc.Plugin{},
 		&applogger.Plugin{},
@@ -163,10 +162,10 @@ func TestAppLoggerWithContext(t *testing.T) {
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Warning context message").Len())
 
 	// Verify context fields are present
-	assert.Equal(t, 1, oLogger.FilterField(zap.String("component", "test")).Len())
-	assert.Equal(t, 1, oLogger.FilterField(zap.String("request_id", "12345")).Len())
-	assert.Equal(t, 1, oLogger.FilterField(zap.String("error_code", "500")).Len())
-	assert.Equal(t, 1, oLogger.FilterField(zap.String("trace", "stack_trace_here")).Len())
-	assert.Equal(t, 1, oLogger.FilterField(zap.String("user", "john")).Len())
-	assert.Equal(t, 1, oLogger.FilterField(zap.String("threshold", "90")).Len())
+	assert.Equal(t, 1, oLogger.FilterAttr("component", "test").Len())
+	assert.Equal(t, 1, oLogger.FilterAttr("request_id", "12345").Len())
+	assert.Equal(t, 1, oLogger.FilterAttr("error_code", "500").Len())
+	assert.Equal(t, 1, oLogger.FilterAttr("trace", "stack_trace_here").Len())
+	assert.Equal(t, 1, oLogger.FilterAttr("user", "john").Len())
+	assert.Equal(t, 1, oLogger.FilterAttr("threshold", "90").Len())
 }
