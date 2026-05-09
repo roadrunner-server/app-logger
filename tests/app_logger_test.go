@@ -12,11 +12,11 @@ import (
 	mocklogger "tests/mock"
 
 	applogger "github.com/roadrunner-server/app-logger/v6"
-	configImpl "github.com/roadrunner-server/config/v5"
+	configImpl "github.com/roadrunner-server/config/v6"
 	"github.com/roadrunner-server/endure/v2"
-	"github.com/roadrunner-server/http/v5"
-	"github.com/roadrunner-server/rpc/v5"
-	"github.com/roadrunner-server/server/v5"
+	"github.com/roadrunner-server/http/v6"
+	"github.com/roadrunner-server/rpc/v6"
+	"github.com/roadrunner-server/server/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
