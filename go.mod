@@ -5,6 +5,7 @@ go 1.26
 toolchain go1.26.0
 
 require (
+	connectrpc.com/connect v1.19.2
 	github.com/roadrunner-server/api-go/v6 v6.0.0-beta.5
 	github.com/stretchr/testify v1.11.1
 )

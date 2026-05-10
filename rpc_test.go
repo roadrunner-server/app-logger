@@ -107,22 +107,22 @@ func TestFormatRaw(t *testing.T) {
 func TestRPCLogLevels(t *testing.T) {
 	tests := []struct {
 		name   string
-		method func(r *RPC, ctx context.Context, msg string) error
+		method func(r *service, ctx context.Context, msg string) error
 		level  slog.Level
 	}{
-		{"Error", func(r *RPC, ctx context.Context, msg string) error {
+		{"Error", func(r *service, ctx context.Context, msg string) error {
 			_, err := r.Error(ctx, connect.NewRequest(&v2.LogMessage{Message: msg}))
 			return err
 		}, slog.LevelError},
-		{"Info", func(r *RPC, ctx context.Context, msg string) error {
+		{"Info", func(r *service, ctx context.Context, msg string) error {
 			_, err := r.Info(ctx, connect.NewRequest(&v2.LogMessage{Message: msg}))
 			return err
 		}, slog.LevelInfo},
-		{"Warning", func(r *RPC, ctx context.Context, msg string) error {
+		{"Warning", func(r *service, ctx context.Context, msg string) error {
 			_, err := r.Warning(ctx, connect.NewRequest(&v2.LogMessage{Message: msg}))
 			return err
 		}, slog.LevelWarn},
-		{"Debug", func(r *RPC, ctx context.Context, msg string) error {
+		{"Debug", func(r *service, ctx context.Context, msg string) error {
 			_, err := r.Debug(ctx, connect.NewRequest(&v2.LogMessage{Message: msg}))
 			return err
 		}, slog.LevelDebug},
@@ -131,9 +131,9 @@ func TestRPCLogLevels(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &captureHandler{}
-			rpc := &RPC{log: slog.New(h)}
+			s := &service{log: slog.New(h)}
 
-			err := tt.method(rpc, t.Context(), "test message")
+			err := tt.method(s, t.Context(), "test message")
 			require.NoError(t, err)
 
 			require.Len(t, h.records, 1)
@@ -146,22 +146,22 @@ func TestRPCLogLevels(t *testing.T) {
 func TestRPCWithContext(t *testing.T) {
 	tests := []struct {
 		name   string
-		method func(r *RPC, ctx context.Context, in *v2.LogEntry) error
+		method func(r *service, ctx context.Context, in *v2.LogEntry) error
 		level  slog.Level
 	}{
-		{"ErrorWithContext", func(r *RPC, ctx context.Context, in *v2.LogEntry) error {
+		{"ErrorWithContext", func(r *service, ctx context.Context, in *v2.LogEntry) error {
 			_, err := r.ErrorWithContext(ctx, connect.NewRequest(in))
 			return err
 		}, slog.LevelError},
-		{"InfoWithContext", func(r *RPC, ctx context.Context, in *v2.LogEntry) error {
+		{"InfoWithContext", func(r *service, ctx context.Context, in *v2.LogEntry) error {
 			_, err := r.InfoWithContext(ctx, connect.NewRequest(in))
 			return err
 		}, slog.LevelInfo},
-		{"WarningWithContext", func(r *RPC, ctx context.Context, in *v2.LogEntry) error {
+		{"WarningWithContext", func(r *service, ctx context.Context, in *v2.LogEntry) error {
 			_, err := r.WarningWithContext(ctx, connect.NewRequest(in))
 			return err
 		}, slog.LevelWarn},
-		{"DebugWithContext", func(r *RPC, ctx context.Context, in *v2.LogEntry) error {
+		{"DebugWithContext", func(r *service, ctx context.Context, in *v2.LogEntry) error {
 			_, err := r.DebugWithContext(ctx, connect.NewRequest(in))
 			return err
 		}, slog.LevelDebug},
@@ -170,14 +170,14 @@ func TestRPCWithContext(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &captureHandler{}
-			rpc := &RPC{log: slog.New(h)}
+			s := &service{log: slog.New(h)}
 
 			entry := &v2.LogEntry{
 				Message:  "ctx message",
 				LogAttrs: []*v2.LogAttrs{{Key: "component", Value: "test"}},
 			}
 
-			err := tt.method(rpc, t.Context(), entry)
+			err := tt.method(s, t.Context(), entry)
 			require.NoError(t, err)
 
 			require.Len(t, h.records, 1)
@@ -193,7 +193,7 @@ func TestRPCWithContext(t *testing.T) {
 
 func TestRPCWithContextMultipleAttrs(t *testing.T) {
 	h := &captureHandler{}
-	rpc := &RPC{log: slog.New(h)}
+	s := &service{log: slog.New(h)}
 
 	entry := &v2.LogEntry{
 		Message: "multi attrs",
@@ -204,7 +204,7 @@ func TestRPCWithContextMultipleAttrs(t *testing.T) {
 		},
 	}
 
-	_, err := rpc.InfoWithContext(t.Context(), connect.NewRequest(entry))
+	_, err := s.InfoWithContext(t.Context(), connect.NewRequest(entry))
 	require.NoError(t, err)
 
 	require.Len(t, h.records, 1)
@@ -227,10 +227,10 @@ func collectAttrs(r slog.Record) map[string]string {
 }
 
 func TestRPCLog(t *testing.T) {
-	rpc := &RPC{log: slog.New(slog.DiscardHandler)}
+	s := &service{log: slog.New(slog.DiscardHandler)}
 
 	out := captureStderr(t, func() {
-		_, err := rpc.Log(t.Context(), connect.NewRequest(&v2.LogMessage{Message: "hello stderr\n"}))
+		_, err := s.Log(t.Context(), connect.NewRequest(&v2.LogMessage{Message: "hello stderr\n"}))
 		require.NoError(t, err)
 	})
 

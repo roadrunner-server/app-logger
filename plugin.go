@@ -28,5 +28,5 @@ func (p *Plugin) Name() string {
 }
 
 func (p *Plugin) RPC() (string, http.Handler) {
-	return apploggerV2connect.NewAppLoggerServiceHandler(&RPC{log: p.log})
+	return apploggerV2connect.NewAppLoggerServiceHandler(&service{log: p.log})
 }

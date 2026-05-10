@@ -31,14 +31,75 @@ import (
 // applogger.v2.AppLoggerService served by the rpc plugin.
 func newAppLoggerClient(t *testing.T, address string) apploggerV2connect.AppLoggerServiceClient {
 	t.Helper()
-	httpc := &http.Client{Transport: &http2.Transport{
-		AllowHTTP: true,
-		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-			return new(net.Dialer).DialContext(ctx, network, addr)
+	httpc := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http2.Transport{
+			AllowHTTP: true,
+			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+				return new(net.Dialer).DialContext(ctx, network, addr)
+			},
 		},
-	}}
+	}
 	t.Cleanup(httpc.CloseIdleConnections)
 	return apploggerV2connect.NewAppLoggerServiceClient(httpc, "http://"+address)
+}
+
+// waitForRPC polls the rpc plugin's listener until it accepts a TCP connection,
+// up to the given deadline. Replaces fragile time.Sleep-based readiness waits.
+func waitForRPC(t *testing.T, address string) {
+	t.Helper()
+	d := &net.Dialer{Timeout: 200 * time.Millisecond}
+	require.Eventually(t, func() bool {
+		conn, err := d.DialContext(t.Context(), "tcp", address)
+		if err != nil {
+			return false
+		}
+		_ = conn.Close()
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "rpc plugin did not become ready at %s", address)
+}
+
+// serveContainer starts the Endure container and returns a stop function.
+// The stop function signals the watcher goroutine, waits for it to exit, and
+// is safe to call exactly once at the end of a test (or via t.Cleanup).
+// While running, the watcher fails the test on container errors or OS signals.
+func serveContainer(t *testing.T, container *endure.Endure) func() {
+	t.Helper()
+	ch, err := container.Serve()
+	require.NoError(t, err)
+
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	var wg sync.WaitGroup
+	stopCh := make(chan struct{}, 1)
+
+	wg.Go(func() {
+		stop := func() {
+			if err := container.Stop(); err != nil {
+				assert.FailNow(t, "error", err.Error())
+			}
+		}
+		for {
+			select {
+			case e := <-ch:
+				assert.Fail(t, "error", e.Error.Error())
+				stop()
+				return
+			case <-sig:
+				stop()
+				return
+			case <-stopCh:
+				stop()
+				return
+			}
+		}
+	})
+
+	return func() {
+		stopCh <- struct{}{}
+		wg.Wait()
+	}
 }
 
 func TestAppLogger(t *testing.T) {
@@ -58,40 +119,9 @@ func TestAppLogger(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, container.Init())
+	stop := serveContainer(t, container)
 
-	ch, err := container.Serve()
-	require.NoError(t, err)
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	var wg sync.WaitGroup
-	stopCh := make(chan struct{}, 1)
-
-	wg.Go(func() {
-		for {
-			select {
-			case e := <-ch:
-				assert.Fail(t, "error", e.Error.Error())
-				if err := container.Stop(); err != nil {
-					assert.FailNow(t, "error", err.Error())
-				}
-				return
-			case <-sig:
-				if err := container.Stop(); err != nil {
-					assert.FailNow(t, "error", err.Error())
-				}
-				return
-			case <-stopCh:
-				if err := container.Stop(); err != nil {
-					assert.FailNow(t, "error", err.Error())
-				}
-				return
-			}
-		}
-	})
-
-	time.Sleep(time.Second)
+	waitForRPC(t, "127.0.0.1:6001")
 
 	client := newAppLoggerClient(t, "127.0.0.1:6001")
 	ctx := t.Context()
@@ -106,8 +136,7 @@ func TestAppLogger(t *testing.T) {
 	require.NoError(t, err)
 
 	time.Sleep(time.Second)
-	stopCh <- struct{}{}
-	wg.Wait()
+	stop()
 
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Debug message").Len())
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Error message").Len())
@@ -132,40 +161,9 @@ func TestAppLoggerWithContext(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, container.Init())
+	stop := serveContainer(t, container)
 
-	ch, err := container.Serve()
-	require.NoError(t, err)
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	var wg sync.WaitGroup
-	stopCh := make(chan struct{}, 1)
-
-	wg.Go(func() {
-		for {
-			select {
-			case e := <-ch:
-				assert.Fail(t, "error", e.Error.Error())
-				if err := container.Stop(); err != nil {
-					assert.FailNow(t, "error", err.Error())
-				}
-				return
-			case <-sig:
-				if err := container.Stop(); err != nil {
-					assert.FailNow(t, "error", err.Error())
-				}
-				return
-			case <-stopCh:
-				if err := container.Stop(); err != nil {
-					assert.FailNow(t, "error", err.Error())
-				}
-				return
-			}
-		}
-	})
-
-	time.Sleep(time.Second)
+	waitForRPC(t, "127.0.0.1:6002")
 
 	client := newAppLoggerClient(t, "127.0.0.1:6002")
 	ctx := t.Context()
@@ -185,8 +183,7 @@ func TestAppLoggerWithContext(t *testing.T) {
 	}
 
 	time.Sleep(time.Second)
-	stopCh <- struct{}{}
-	wg.Wait()
+	stop()
 
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Debug context message").Len())
 	assert.Equal(t, 1, oLogger.FilterMessageSnippet("Error context message").Len())
