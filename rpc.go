@@ -1,90 +1,81 @@
 package app
 
 import (
+	"context"
 	"io"
 	"log/slog"
-	"os"
 	"strings"
 
-	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
+	"connectrpc.com/connect"
+	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 )
 
-/*
-https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md
-public function emergency($message, array $context = array());
-public function alert($message, array $context = array());
-public function critical($message, array $context = array());
-public function error($message, array $context = array());
-public function warning($message, array $context = array());
-public function notice($message, array $context = array());
-public function info($message, array $context = array());
-public function debug($message, array $context = array());
-public function log($level, $message, array $context = array());
-*/
+// Subset of PSR-3 implemented over Connect-RPC. Each level has a string-only
+// variant and a *WithContext variant that takes structured attrs. PSR-3 also
+// defines emergency/alert/critical/notice — those are not exposed; producers
+// can map them onto Error/Info as appropriate.
+// https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md
 
-type RPC struct {
-	log *slog.Logger
+type service struct {
+	log    *slog.Logger
+	stderr io.Writer // injectable so the error path in Log/LogWithContext is testable
 }
 
-func (r *RPC) Error(in string, _ *bool) error {
-	r.log.Error(in)
-
-	return nil
+func (r *service) Error(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Error(req.Msg.GetMessage())
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) ErrorWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Error(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *service) ErrorWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Error(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) Info(in string, _ *bool) error {
-	r.log.Info(in)
-
-	return nil
+func (r *service) Info(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Info(req.Msg.GetMessage())
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) InfoWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Info(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *service) InfoWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Info(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) Warning(in string, _ *bool) error {
-	r.log.Warn(in)
-
-	return nil
+func (r *service) Warning(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Warn(req.Msg.GetMessage())
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) WarningWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Warn(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *service) WarningWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Warn(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) Debug(in string, _ *bool) error {
-	r.log.Debug(in)
-
-	return nil
+func (r *service) Debug(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Debug(req.Msg.GetMessage())
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) DebugWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Debug(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *service) DebugWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.Debug(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) Log(in string, _ *bool) error {
-	_, err := io.WriteString(os.Stderr, in)
-	return err
+func (r *service) Log(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	if _, err := io.WriteString(r.stderr, req.Msg.GetMessage()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *RPC) LogWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
-	return err
+func (r *service) LogWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	if _, err := io.WriteString(r.stderr, formatRaw(req.Msg.GetMessage(), req.Msg.GetLogAttrs())); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func formatRaw(msg string, args []*v2.LogAttrs) string {
+func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
 	if len(args) == 0 {
 		return msg
 	}
@@ -103,7 +94,7 @@ func formatRaw(msg string, args []*v2.LogAttrs) string {
 	return b.String()
 }
 
-func format(args []*v2.LogAttrs) []any {
+func format(args []*apploggerV2.LogAttrs) []any {
 	fields := make([]any, 0, len(args)*2)
 
 	for _, v := range args {
