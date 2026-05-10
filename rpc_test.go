@@ -1,10 +1,10 @@
 package app
 
 import (
+	"bytes"
 	"context"
-	"io"
+	stderrors "errors"
 	"log/slog"
-	"os"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -13,6 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// errWriter always returns its preset error from Write — used to exercise
+// the io.WriteString failure path in Log/LogWithContext.
+type errWriter struct{ err error }
+
+func (w *errWriter) Write(_ []byte) (int, error) { return 0, w.err }
 
 // captureHandler records every record observed for assertions in tests.
 type captureHandler struct {
@@ -28,28 +34,6 @@ func (h *captureHandler) Handle(_ context.Context, r slog.Record) error {
 
 func (h *captureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }
 func (h *captureHandler) WithGroup(string) slog.Handler      { return h }
-
-// captureStderr redirects os.Stderr to a pipe for the duration of fn,
-// returning whatever was written. Not parallel-safe.
-func captureStderr(t *testing.T, fn func()) string {
-	t.Helper()
-	old := os.Stderr
-	r, w, err := os.Pipe()
-	require.NoError(t, err)
-
-	defer func() {
-		_ = w.Close() // no-op if already closed below
-		os.Stderr = old
-		_ = r.Close()
-	}()
-
-	os.Stderr = w
-	fn()
-	_ = w.Close()
-	out, _ := io.ReadAll(r)
-
-	return string(out)
-}
 
 func TestFormatRaw(t *testing.T) {
 	tests := []struct {
@@ -227,12 +211,46 @@ func collectAttrs(r slog.Record) map[string]string {
 }
 
 func TestRPCLog(t *testing.T) {
-	s := &service{log: slog.New(slog.DiscardHandler)}
+	var buf bytes.Buffer
+	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
 
-	out := captureStderr(t, func() {
-		_, err := s.Log(t.Context(), connect.NewRequest(&v2.LogMessage{Message: "hello stderr\n"}))
-		require.NoError(t, err)
+	_, err := s.Log(t.Context(), connect.NewRequest(&v2.LogMessage{Message: "hello stderr\n"}))
+	require.NoError(t, err)
+
+	assert.Equal(t, "hello stderr\n", buf.String())
+}
+
+func TestRPCLogWithContext(t *testing.T) {
+	var buf bytes.Buffer
+	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
+
+	entry := &v2.LogEntry{
+		Message:  "hello",
+		LogAttrs: []*v2.LogAttrs{{Key: "k", Value: "v"}},
+	}
+	_, err := s.LogWithContext(t.Context(), connect.NewRequest(entry))
+	require.NoError(t, err)
+
+	assert.Equal(t, "hello k:v", buf.String())
+}
+
+func TestRPCLogWriteFailureMapsToCodeInternal(t *testing.T) {
+	want := stderrors.New("write failure")
+	s := &service{log: slog.New(slog.DiscardHandler), stderr: &errWriter{err: want}}
+
+	t.Run("Log", func(t *testing.T) {
+		resp, err := s.Log(t.Context(), connect.NewRequest(&v2.LogMessage{Message: "x"}))
+		require.Nil(t, resp)
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
+		assert.ErrorIs(t, err, want)
 	})
 
-	assert.Equal(t, "hello stderr\n", out)
+	t.Run("LogWithContext", func(t *testing.T) {
+		resp, err := s.LogWithContext(t.Context(), connect.NewRequest(&v2.LogEntry{Message: "x"}))
+		require.Nil(t, resp)
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
+		assert.ErrorIs(t, err, want)
+	})
 }

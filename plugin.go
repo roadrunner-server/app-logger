@@ -3,6 +3,7 @@ package app
 import (
 	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/roadrunner-server/api-go/v6/applogger/v2/apploggerV2connect"
 )
@@ -28,5 +29,5 @@ func (p *Plugin) Name() string {
 }
 
 func (p *Plugin) RPC() (string, http.Handler) {
-	return apploggerV2connect.NewAppLoggerServiceHandler(&service{log: p.log})
+	return apploggerV2connect.NewAppLoggerServiceHandler(&service{log: p.log, stderr: os.Stderr})
 }

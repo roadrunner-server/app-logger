@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"os"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -18,7 +17,8 @@ import (
 // https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md
 
 type service struct {
-	log *slog.Logger
+	log    *slog.Logger
+	stderr io.Writer // injectable so the error path in Log/LogWithContext is testable
 }
 
 func (r *service) Error(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
@@ -62,14 +62,14 @@ func (r *service) DebugWithContext(_ context.Context, req *connect.Request[v2.Lo
 }
 
 func (r *service) Log(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
-	if _, err := io.WriteString(os.Stderr, req.Msg.GetMessage()); err != nil {
+	if _, err := io.WriteString(r.stderr, req.Msg.GetMessage()); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
 func (r *service) LogWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
-	if _, err := io.WriteString(os.Stderr, formatRaw(req.Msg.GetMessage(), req.Msg.GetLogAttrs())); err != nil {
+	if _, err := io.WriteString(r.stderr, formatRaw(req.Msg.GetMessage(), req.Msg.GetLogAttrs())); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&v2.LogResponse{}), nil
