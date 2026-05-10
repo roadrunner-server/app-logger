@@ -1,11 +1,13 @@
 package app
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"os"
 	"strings"
 
+	"connectrpc.com/connect"
 	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 )
 
@@ -26,62 +28,58 @@ type RPC struct {
 	log *slog.Logger
 }
 
-func (r *RPC) Error(in string, _ *bool) error {
-	r.log.Error(in)
-
-	return nil
+func (r *RPC) Error(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Error(req.Msg.GetMessage())
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) ErrorWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Error(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *RPC) ErrorWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Error(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) Info(in string, _ *bool) error {
-	r.log.Info(in)
-
-	return nil
+func (r *RPC) Info(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Info(req.Msg.GetMessage())
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) InfoWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Info(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *RPC) InfoWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Info(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) Warning(in string, _ *bool) error {
-	r.log.Warn(in)
-
-	return nil
+func (r *RPC) Warning(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Warn(req.Msg.GetMessage())
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) WarningWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Warn(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *RPC) WarningWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Warn(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) Debug(in string, _ *bool) error {
-	r.log.Debug(in)
-
-	return nil
+func (r *RPC) Debug(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Debug(req.Msg.GetMessage())
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) DebugWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	r.log.Debug(in.GetMessage(), format(in.GetLogAttrs())...)
-
-	return nil
+func (r *RPC) DebugWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+	r.log.Debug(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) Log(in string, _ *bool) error {
-	_, err := io.WriteString(os.Stderr, in)
-	return err
+func (r *RPC) Log(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+	if _, err := io.WriteString(os.Stderr, req.Msg.GetMessage()); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
-func (r *RPC) LogWithContext(in *v2.LogEntry, _ *v2.LogResponse) error {
-	_, err := io.WriteString(os.Stderr, formatRaw(in.GetMessage(), in.GetLogAttrs()))
-	return err
+func (r *RPC) LogWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+	if _, err := io.WriteString(os.Stderr, formatRaw(req.Msg.GetMessage(), req.Msg.GetLogAttrs())); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	return connect.NewResponse(&v2.LogResponse{}), nil
 }
 
 func formatRaw(msg string, args []*v2.LogAttrs) string {
