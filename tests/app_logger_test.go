@@ -16,7 +16,7 @@ import (
 	mocklogger "tests/mock"
 
 	"connectrpc.com/connect"
-	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
+	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 	"github.com/roadrunner-server/api-go/v6/applogger/v2/apploggerV2connect"
 	applogger "github.com/roadrunner-server/app-logger/v6"
 	configImpl "github.com/roadrunner-server/config/v6"
@@ -126,13 +126,13 @@ func TestAppLogger(t *testing.T) {
 	client := newAppLoggerClient(t, "127.0.0.1:6001")
 	ctx := t.Context()
 
-	_, err = client.Debug(ctx, connect.NewRequest(&v2.LogMessage{Message: "Debug message"}))
+	_, err = client.Debug(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Debug message"}))
 	require.NoError(t, err)
-	_, err = client.Error(ctx, connect.NewRequest(&v2.LogMessage{Message: "Error message"}))
+	_, err = client.Error(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Error message"}))
 	require.NoError(t, err)
-	_, err = client.Info(ctx, connect.NewRequest(&v2.LogMessage{Message: "Info message"}))
+	_, err = client.Info(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Info message"}))
 	require.NoError(t, err)
-	_, err = client.Warning(ctx, connect.NewRequest(&v2.LogMessage{Message: "Warning message"}))
+	_, err = client.Warning(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Warning message"}))
 	require.NoError(t, err)
 
 	time.Sleep(time.Second)
@@ -169,13 +169,13 @@ func TestAppLoggerWithContext(t *testing.T) {
 	ctx := t.Context()
 
 	entries := []struct {
-		method func(context.Context, *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error)
-		entry  *v2.LogEntry
+		method func(context.Context, *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error)
+		entry  *apploggerV2.LogEntry
 	}{
-		{client.DebugWithContext, &v2.LogEntry{Message: "Debug context message", LogAttrs: []*v2.LogAttrs{{Key: "component", Value: "test"}}}},
-		{client.ErrorWithContext, &v2.LogEntry{Message: "Error context message", LogAttrs: []*v2.LogAttrs{{Key: "error_code", Value: "500"}, {Key: "trace", Value: "stack_trace_here"}}}},
-		{client.InfoWithContext, &v2.LogEntry{Message: "Info context message", LogAttrs: []*v2.LogAttrs{{Key: "request_id", Value: "12345"}, {Key: "user", Value: "john"}}}},
-		{client.WarningWithContext, &v2.LogEntry{Message: "Warning context message", LogAttrs: []*v2.LogAttrs{{Key: "threshold", Value: "90"}}}},
+		{client.DebugWithContext, &apploggerV2.LogEntry{Message: "Debug context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "component", Value: "test"}}}},
+		{client.ErrorWithContext, &apploggerV2.LogEntry{Message: "Error context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "error_code", Value: "500"}, {Key: "trace", Value: "stack_trace_here"}}}},
+		{client.InfoWithContext, &apploggerV2.LogEntry{Message: "Info context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "request_id", Value: "12345"}, {Key: "user", Value: "john"}}}},
+		{client.WarningWithContext, &apploggerV2.LogEntry{Message: "Warning context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "threshold", Value: "90"}}}},
 	}
 	for _, e := range entries {
 		_, err = e.method(ctx, connect.NewRequest(e.entry))

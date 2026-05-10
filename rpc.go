@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	v2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
+	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 )
 
 // Subset of PSR-3 implemented over Connect-RPC. Each level has a string-only
@@ -21,61 +21,61 @@ type service struct {
 	stderr io.Writer // injectable so the error path in Log/LogWithContext is testable
 }
 
-func (r *service) Error(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) Error(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Error(req.Msg.GetMessage())
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) ErrorWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) ErrorWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Error(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Info(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) Info(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Info(req.Msg.GetMessage())
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) InfoWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) InfoWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Info(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Warning(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) Warning(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Warn(req.Msg.GetMessage())
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) WarningWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) WarningWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Warn(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Debug(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) Debug(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Debug(req.Msg.GetMessage())
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) DebugWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) DebugWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
 	r.log.Debug(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Log(_ context.Context, req *connect.Request[v2.LogMessage]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) Log(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
 	if _, err := io.WriteString(r.stderr, req.Msg.GetMessage()); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) LogWithContext(_ context.Context, req *connect.Request[v2.LogEntry]) (*connect.Response[v2.LogResponse], error) {
+func (r *service) LogWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
 	if _, err := io.WriteString(r.stderr, formatRaw(req.Msg.GetMessage(), req.Msg.GetLogAttrs())); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	return connect.NewResponse(&v2.LogResponse{}), nil
+	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func formatRaw(msg string, args []*v2.LogAttrs) string {
+func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
 	if len(args) == 0 {
 		return msg
 	}
@@ -94,7 +94,7 @@ func formatRaw(msg string, args []*v2.LogAttrs) string {
 	return b.String()
 }
 
-func format(args []*v2.LogAttrs) []any {
+func format(args []*apploggerV2.LogAttrs) []any {
 	fields := make([]any, 0, len(args)*2)
 
 	for _, v := range args {
