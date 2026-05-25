@@ -70,7 +70,7 @@ jobs:
 
       - name: Run integration tests with coverage
         run: |
-          go test -timeout 20m -v -race -cover -tags=debug -failfast -coverpkg=$(cat ./tests/pkgs.txt) -coverprofile=./tests/coverage-ci/applogger.out -covermode=atomic ./tests/app_logger_test.go
+          go test -timeout 20m -v -race -cover -tags=debug -failfast -coverpkg=github.com/roadrunner-server/app-logger/v6 -coverprofile=./tests/coverage-ci/applogger.out -covermode=atomic ./tests/app_logger_test.go
 
       - name: Archive code coverage results
         uses: actions/upload-artifact@v7
@@ -100,8 +100,8 @@ jobs:
           tail -q -n +2 coverage/*.out >> summary.txt
           awk '
             NR == 1 { print; next }
-            /^github\.com\/roadrunner-server\/app-logger\/v5\// {
-              sub(/^github\.com\/roadrunner-server\/app-logger\/v5\//, "", $0)
+            /^github\.com\/roadrunner-server\/app-logger\/v6\// {
+              sub(/^github\.com\/roadrunner-server\/app-logger\/v6\//, "", $0)
               print
             }
           ' summary.txt > summary.filtered.txt
