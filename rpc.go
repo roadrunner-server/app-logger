@@ -21,48 +21,52 @@ type service struct {
 	stderr io.Writer // injectable so the error path in Log/LogWithContext is testable
 }
 
-func (r *service) Error(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Error(req.Msg.GetMessage())
+func (r *service) Error(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.ErrorContext(ctx, req.Msg.GetMessage())
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) ErrorWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Error(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+func (r *service) ErrorWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.LogAttrs(ctx, slog.LevelError, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Info(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Info(req.Msg.GetMessage())
+func (r *service) Info(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.InfoContext(ctx, req.Msg.GetMessage())
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) InfoWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Info(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+func (r *service) InfoWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Warning(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Warn(req.Msg.GetMessage())
+func (r *service) Warning(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.WarnContext(ctx, req.Msg.GetMessage())
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) WarningWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Warn(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+func (r *service) WarningWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.LogAttrs(ctx, slog.LevelWarn, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) Debug(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Debug(req.Msg.GetMessage())
+func (r *service) Debug(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.DebugContext(ctx, req.Msg.GetMessage())
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-func (r *service) DebugWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.Debug(req.Msg.GetMessage(), format(req.Msg.GetLogAttrs())...)
+func (r *service) DebugWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
+	r.log.LogAttrs(ctx, slog.LevelDebug, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
 func (r *service) Log(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	if _, err := io.WriteString(r.stderr, req.Msg.GetMessage()); err != nil {
+	msg := req.Msg.GetMessage()
+	if len(msg) == 0 || msg[len(msg)-1] != '\n' {
+		msg += "\n"
+	}
+	if _, err := io.WriteString(r.stderr, msg); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
@@ -75,31 +79,26 @@ func (r *service) LogWithContext(_ context.Context, req *connect.Request[applogg
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
+// formatRaw renders a log entry as a plain text line for the raw stderr path.
+// The shared buildAttrs helper is used so the key:value formatting stays consistent.
 func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
 	if len(args) == 0 {
-		return msg
+		return msg + "\n"
 	}
 
-	var b strings.Builder
-	b.WriteString(msg)
-	b.WriteByte(' ')
+	pairs := make([]string, len(args))
 	for i, a := range args {
-		if i > 0 {
-			b.WriteByte(',')
-		}
-		b.WriteString(a.GetKey())
-		b.WriteByte(':')
-		b.WriteString(a.GetValue())
+		pairs[i] = a.GetKey() + ":" + a.GetValue()
 	}
-	return b.String()
+	return msg + " " + strings.Join(pairs, ",") + "\n"
 }
 
-func format(args []*apploggerV2.LogAttrs) []any {
-	fields := make([]any, 0, len(args)*2)
-
-	for _, v := range args {
-		fields = append(fields, v.GetKey(), v.GetValue())
+// buildAttrs converts protobuf LogAttrs into typed slog.Attr values,
+// enabling LogAttrs calls that avoid the []any boxing overhead.
+func buildAttrs(args []*apploggerV2.LogAttrs) []slog.Attr {
+	attrs := make([]slog.Attr, len(args))
+	for i, a := range args {
+		attrs[i] = slog.String(a.GetKey(), a.GetValue())
 	}
-
-	return fields
+	return attrs
 }
