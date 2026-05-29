@@ -62,11 +62,7 @@ func (r *service) DebugWithContext(ctx context.Context, req *connect.Request[app
 }
 
 func (r *service) Log(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	msg := req.Msg.GetMessage()
-	if len(msg) == 0 || msg[len(msg)-1] != '\n' {
-		msg += "\n"
-	}
-	if _, err := io.WriteString(r.stderr, msg); err != nil {
+	if _, err := io.WriteString(r.stderr, ensureNewline(req.Msg.GetMessage())); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
@@ -79,11 +75,12 @@ func (r *service) LogWithContext(_ context.Context, req *connect.Request[applogg
 	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
 }
 
-// formatRaw renders a log entry as a plain text line for the raw stderr path.
-// The shared buildAttrs helper is used so the key:value formatting stays consistent.
+// formatRaw renders a log entry as a single plain-text line (terminated by a
+// newline) for the raw stderr path, joining attrs as comma-separated key:value
+// pairs.
 func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
 	if len(args) == 0 {
-		return msg + "\n"
+		return ensureNewline(msg)
 	}
 
 	pairs := make([]string, len(args))
@@ -91,6 +88,16 @@ func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
 		pairs[i] = a.GetKey() + ":" + a.GetValue()
 	}
 	return msg + " " + strings.Join(pairs, ",") + "\n"
+}
+
+// ensureNewline returns s with exactly one trailing newline, leaving an
+// already newline-terminated string unchanged so raw stderr writes neither run
+// together nor gain a blank line.
+func ensureNewline(s string) string {
+	if len(s) == 0 || s[len(s)-1] != '\n' {
+		return s + "\n"
+	}
+	return s
 }
 
 // buildAttrs converts protobuf LogAttrs into typed slog.Attr values,

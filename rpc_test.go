@@ -55,6 +55,12 @@ func TestFormatRaw(t *testing.T) {
 			want: "hello\n",
 		},
 		{
+			name: "no args already newline-terminated",
+			msg:  "hello\n",
+			args: nil,
+			want: "hello\n",
+		},
+		{
 			name: "single attr",
 			msg:  "hello",
 			args: []*apploggerV2.LogAttrs{{Key: "k1", Value: "v1"}},
