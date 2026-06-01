@@ -46,19 +46,25 @@ func TestFormatRaw(t *testing.T) {
 			name: "nil args",
 			msg:  "hello",
 			args: nil,
-			want: "hello",
+			want: "hello\n",
 		},
 		{
 			name: "empty args",
 			msg:  "hello",
 			args: []*apploggerV2.LogAttrs{},
-			want: "hello",
+			want: "hello\n",
+		},
+		{
+			name: "no args already newline-terminated",
+			msg:  "hello\n",
+			args: nil,
+			want: "hello\n",
 		},
 		{
 			name: "single attr",
 			msg:  "hello",
 			args: []*apploggerV2.LogAttrs{{Key: "k1", Value: "v1"}},
-			want: "hello k1:v1",
+			want: "hello k1:v1\n",
 		},
 		{
 			name: "multiple attrs",
@@ -67,7 +73,7 @@ func TestFormatRaw(t *testing.T) {
 				{Key: "k1", Value: "v1"},
 				{Key: "k2", Value: "v2"},
 			},
-			want: "msg k1:v1,k2:v2",
+			want: "msg k1:v1,k2:v2\n",
 		},
 		{
 			name: "special chars in values",
@@ -76,7 +82,7 @@ func TestFormatRaw(t *testing.T) {
 				{Key: "url", Value: "http://example.com:8080"},
 				{Key: "list", Value: "a,b,c"},
 			},
-			want: "msg url:http://example.com:8080,list:a,b,c",
+			want: "msg url:http://example.com:8080,list:a,b,c\n",
 		},
 	}
 
@@ -231,7 +237,7 @@ func TestRPCLogWithContext(t *testing.T) {
 	_, err := s.LogWithContext(t.Context(), connect.NewRequest(entry))
 	require.NoError(t, err)
 
-	assert.Equal(t, "hello k:v", buf.String())
+	assert.Equal(t, "hello k:v\n", buf.String())
 }
 
 func TestRPCLogWriteFailureMapsToCodeInternal(t *testing.T) {
