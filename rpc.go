@@ -83,11 +83,19 @@ func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
 		return ensureNewline(msg)
 	}
 
-	pairs := make([]string, len(args))
+	var b strings.Builder
+	b.WriteString(msg)
+	b.WriteByte(' ')
 	for i, a := range args {
-		pairs[i] = a.GetKey() + ":" + a.GetValue()
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(a.GetKey())
+		b.WriteByte(':')
+		b.WriteString(a.GetValue())
 	}
-	return msg + " " + strings.Join(pairs, ",") + "\n"
+	b.WriteByte('\n')
+	return b.String()
 }
 
 // ensureNewline returns s with exactly one trailing newline, leaving an
