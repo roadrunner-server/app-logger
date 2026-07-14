@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"testing"
 
-	"connectrpc.com/connect"
 	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 
 	"github.com/stretchr/testify/assert"
@@ -97,24 +96,20 @@ func TestFormatRaw(t *testing.T) {
 func TestRPCLogLevels(t *testing.T) {
 	tests := []struct {
 		name   string
-		method func(r *service, ctx context.Context, msg string) error
+		method func(r *service, msg string) error
 		level  slog.Level
 	}{
-		{"Error", func(r *service, ctx context.Context, msg string) error {
-			_, err := r.Error(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: msg}))
-			return err
+		{"Error", func(r *service, msg string) error {
+			return r.Error(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
 		}, slog.LevelError},
-		{"Info", func(r *service, ctx context.Context, msg string) error {
-			_, err := r.Info(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: msg}))
-			return err
+		{"Info", func(r *service, msg string) error {
+			return r.Info(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
 		}, slog.LevelInfo},
-		{"Warning", func(r *service, ctx context.Context, msg string) error {
-			_, err := r.Warning(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: msg}))
-			return err
+		{"Warning", func(r *service, msg string) error {
+			return r.Warning(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
 		}, slog.LevelWarn},
-		{"Debug", func(r *service, ctx context.Context, msg string) error {
-			_, err := r.Debug(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: msg}))
-			return err
+		{"Debug", func(r *service, msg string) error {
+			return r.Debug(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
 		}, slog.LevelDebug},
 	}
 
@@ -123,7 +118,7 @@ func TestRPCLogLevels(t *testing.T) {
 			h := &captureHandler{}
 			s := &service{log: slog.New(h)}
 
-			err := tt.method(s, t.Context(), "test message")
+			err := tt.method(s, "test message")
 			require.NoError(t, err)
 
 			require.Len(t, h.records, 1)
@@ -136,24 +131,20 @@ func TestRPCLogLevels(t *testing.T) {
 func TestRPCWithContext(t *testing.T) {
 	tests := []struct {
 		name   string
-		method func(r *service, ctx context.Context, in *apploggerV2.LogEntry) error
+		method func(r *service, in *apploggerV2.LogEntry) error
 		level  slog.Level
 	}{
-		{"ErrorWithContext", func(r *service, ctx context.Context, in *apploggerV2.LogEntry) error {
-			_, err := r.ErrorWithContext(ctx, connect.NewRequest(in))
-			return err
+		{"ErrorWithContext", func(r *service, in *apploggerV2.LogEntry) error {
+			return r.ErrorWithContext(in, &apploggerV2.LogResponse{})
 		}, slog.LevelError},
-		{"InfoWithContext", func(r *service, ctx context.Context, in *apploggerV2.LogEntry) error {
-			_, err := r.InfoWithContext(ctx, connect.NewRequest(in))
-			return err
+		{"InfoWithContext", func(r *service, in *apploggerV2.LogEntry) error {
+			return r.InfoWithContext(in, &apploggerV2.LogResponse{})
 		}, slog.LevelInfo},
-		{"WarningWithContext", func(r *service, ctx context.Context, in *apploggerV2.LogEntry) error {
-			_, err := r.WarningWithContext(ctx, connect.NewRequest(in))
-			return err
+		{"WarningWithContext", func(r *service, in *apploggerV2.LogEntry) error {
+			return r.WarningWithContext(in, &apploggerV2.LogResponse{})
 		}, slog.LevelWarn},
-		{"DebugWithContext", func(r *service, ctx context.Context, in *apploggerV2.LogEntry) error {
-			_, err := r.DebugWithContext(ctx, connect.NewRequest(in))
-			return err
+		{"DebugWithContext", func(r *service, in *apploggerV2.LogEntry) error {
+			return r.DebugWithContext(in, &apploggerV2.LogResponse{})
 		}, slog.LevelDebug},
 	}
 
@@ -167,7 +158,7 @@ func TestRPCWithContext(t *testing.T) {
 				LogAttrs: []*apploggerV2.LogAttrs{{Key: "component", Value: "test"}},
 			}
 
-			err := tt.method(s, t.Context(), entry)
+			err := tt.method(s, entry)
 			require.NoError(t, err)
 
 			require.Len(t, h.records, 1)
@@ -194,7 +185,7 @@ func TestRPCWithContextMultipleAttrs(t *testing.T) {
 		},
 	}
 
-	_, err := s.InfoWithContext(t.Context(), connect.NewRequest(entry))
+	err := s.InfoWithContext(entry, &apploggerV2.LogResponse{})
 	require.NoError(t, err)
 
 	require.Len(t, h.records, 1)
@@ -220,7 +211,7 @@ func TestRPCLog(t *testing.T) {
 	var buf bytes.Buffer
 	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
 
-	_, err := s.Log(t.Context(), connect.NewRequest(&apploggerV2.LogMessage{Message: "hello stderr\n"}))
+	err := s.Log(&apploggerV2.LogMessage{Message: "hello stderr\n"}, &apploggerV2.LogResponse{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "hello stderr\n", buf.String())
@@ -234,29 +225,25 @@ func TestRPCLogWithContext(t *testing.T) {
 		Message:  "hello",
 		LogAttrs: []*apploggerV2.LogAttrs{{Key: "k", Value: "v"}},
 	}
-	_, err := s.LogWithContext(t.Context(), connect.NewRequest(entry))
+	err := s.LogWithContext(entry, &apploggerV2.LogResponse{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "hello k:v\n", buf.String())
 }
 
-func TestRPCLogWriteFailureMapsToCodeInternal(t *testing.T) {
+func TestRPCLogWriteFailure(t *testing.T) {
 	want := stderrors.New("write failure")
 	s := &service{log: slog.New(slog.DiscardHandler), stderr: &errWriter{err: want}}
 
 	t.Run("Log", func(t *testing.T) {
-		resp, err := s.Log(t.Context(), connect.NewRequest(&apploggerV2.LogMessage{Message: "x"}))
-		require.Nil(t, resp)
+		err := s.Log(&apploggerV2.LogMessage{Message: "x"}, &apploggerV2.LogResponse{})
 		require.Error(t, err)
-		assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 		assert.ErrorIs(t, err, want)
 	})
 
 	t.Run("LogWithContext", func(t *testing.T) {
-		resp, err := s.LogWithContext(t.Context(), connect.NewRequest(&apploggerV2.LogEntry{Message: "x"}))
-		require.Nil(t, resp)
+		err := s.LogWithContext(&apploggerV2.LogEntry{Message: "x"}, &apploggerV2.LogResponse{})
 		require.Error(t, err)
-		assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 		assert.ErrorIs(t, err, want)
 	})
 }

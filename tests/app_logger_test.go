@@ -1,11 +1,9 @@
 package app_logger //nolint:stylecheck
 
 import (
-	"context"
-	"crypto/tls"
 	"log/slog"
 	"net"
-	"net/http"
+	"net/rpc"
 	"os"
 	"os/signal"
 	"sync"
@@ -15,33 +13,25 @@ import (
 
 	mocklogger "tests/mock"
 
-	"connectrpc.com/connect"
 	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
-	"github.com/roadrunner-server/api-go/v6/applogger/v2/apploggerV2connect"
 	applogger "github.com/roadrunner-server/app-logger/v6"
 	configImpl "github.com/roadrunner-server/config/v6"
 	"github.com/roadrunner-server/endure/v2"
-	"github.com/roadrunner-server/rpc/v6"
+	goridgeRpc "github.com/roadrunner-server/goridge/v4/pkg/rpc"
+	rpcPlugin "github.com/roadrunner-server/rpc/v6"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/net/http2"
 )
 
-// newAppLoggerClient builds an h2c Connect client for the migrated
-// applogger.v2.AppLoggerService served by the rpc plugin.
-func newAppLoggerClient(t *testing.T, address string) apploggerV2connect.AppLoggerServiceClient {
+// newAppLoggerClient dials the rpc plugin's goridge listener and returns a
+// net/rpc client speaking the goridge frame codec.
+func newAppLoggerClient(t *testing.T, address string) *rpc.Client {
 	t.Helper()
-	httpc := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http2.Transport{
-			AllowHTTP: true,
-			DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-				return new(net.Dialer).DialContext(ctx, network, addr)
-			},
-		},
-	}
-	t.Cleanup(httpc.CloseIdleConnections)
-	return apploggerV2connect.NewAppLoggerServiceClient(httpc, "http://"+address)
+	conn, err := (&net.Dialer{}).DialContext(t.Context(), "tcp", address)
+	require.NoError(t, err)
+	client := rpc.NewClientWithCodec(goridgeRpc.NewClientCodec(conn))
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }
 
 // waitForRPC polls the rpc plugin's listener until it accepts a TCP connection,
@@ -111,7 +101,7 @@ func TestAppLogger(t *testing.T) {
 
 	l, oLogger := mocklogger.SlogTestLogger(slog.LevelDebug)
 	err := container.RegisterAll(
-		&rpc.Plugin{},
+		&rpcPlugin.Plugin{},
 		&applogger.Plugin{},
 		l,
 		vp,
@@ -124,16 +114,12 @@ func TestAppLogger(t *testing.T) {
 	waitForRPC(t, "127.0.0.1:6001")
 
 	client := newAppLoggerClient(t, "127.0.0.1:6001")
-	ctx := t.Context()
 
-	_, err = client.Debug(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Debug message"}))
-	require.NoError(t, err)
-	_, err = client.Error(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Error message"}))
-	require.NoError(t, err)
-	_, err = client.Info(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Info message"}))
-	require.NoError(t, err)
-	_, err = client.Warning(ctx, connect.NewRequest(&apploggerV2.LogMessage{Message: "Warning message"}))
-	require.NoError(t, err)
+	var resp apploggerV2.LogResponse
+	require.NoError(t, client.Call("app.Debug", &apploggerV2.LogMessage{Message: "Debug message"}, &resp))
+	require.NoError(t, client.Call("app.Error", &apploggerV2.LogMessage{Message: "Error message"}, &resp))
+	require.NoError(t, client.Call("app.Info", &apploggerV2.LogMessage{Message: "Info message"}, &resp))
+	require.NoError(t, client.Call("app.Warning", &apploggerV2.LogMessage{Message: "Warning message"}, &resp))
 
 	time.Sleep(time.Second)
 	stop()
@@ -153,7 +139,7 @@ func TestAppLoggerWithContext(t *testing.T) {
 
 	l, oLogger := mocklogger.SlogTestLogger(slog.LevelDebug)
 	err := container.RegisterAll(
-		&rpc.Plugin{},
+		&rpcPlugin.Plugin{},
 		&applogger.Plugin{},
 		l,
 		vp,
@@ -166,20 +152,19 @@ func TestAppLoggerWithContext(t *testing.T) {
 	waitForRPC(t, "127.0.0.1:6002")
 
 	client := newAppLoggerClient(t, "127.0.0.1:6002")
-	ctx := t.Context()
 
 	entries := []struct {
-		method func(context.Context, *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error)
+		method string
 		entry  *apploggerV2.LogEntry
 	}{
-		{client.DebugWithContext, &apploggerV2.LogEntry{Message: "Debug context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "component", Value: "test"}}}},
-		{client.ErrorWithContext, &apploggerV2.LogEntry{Message: "Error context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "error_code", Value: "500"}, {Key: "trace", Value: "stack_trace_here"}}}},
-		{client.InfoWithContext, &apploggerV2.LogEntry{Message: "Info context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "request_id", Value: "12345"}, {Key: "user", Value: "john"}}}},
-		{client.WarningWithContext, &apploggerV2.LogEntry{Message: "Warning context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "threshold", Value: "90"}}}},
+		{"app.DebugWithContext", &apploggerV2.LogEntry{Message: "Debug context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "component", Value: "test"}}}},
+		{"app.ErrorWithContext", &apploggerV2.LogEntry{Message: "Error context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "error_code", Value: "500"}, {Key: "trace", Value: "stack_trace_here"}}}},
+		{"app.InfoWithContext", &apploggerV2.LogEntry{Message: "Info context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "request_id", Value: "12345"}, {Key: "user", Value: "john"}}}},
+		{"app.WarningWithContext", &apploggerV2.LogEntry{Message: "Warning context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "threshold", Value: "90"}}}},
 	}
+	var resp apploggerV2.LogResponse
 	for _, e := range entries {
-		_, err = e.method(ctx, connect.NewRequest(e.entry))
-		require.NoError(t, err)
+		require.NoError(t, client.Call(e.method, e.entry, &resp))
 	}
 
 	time.Sleep(time.Second)
