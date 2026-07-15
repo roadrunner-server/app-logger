@@ -2,18 +2,18 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
 
-	"connectrpc.com/connect"
 	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
 )
 
-// Subset of PSR-3 implemented over Connect-RPC. Each level has a string-only
-// variant and a *WithContext variant that takes structured attrs. PSR-3 also
-// defines emergency/alert/critical/notice — those are not exposed; producers
-// can map them onto Error/Info as appropriate.
+// Subset of PSR-3 implemented over net/rpc (goridge). Each level has a
+// message-only variant and a *WithContext variant that takes structured attrs.
+// PSR-3 also defines emergency/alert/critical/notice — those are not exposed;
+// producers can map them onto Error/Info as appropriate.
 // https://github.com/php-fig/fig-standards/blob/master/accepted/PSR-3-logger-interface.md
 
 type service struct {
@@ -21,58 +21,58 @@ type service struct {
 	stderr io.Writer // injectable so the error path in Log/LogWithContext is testable
 }
 
-func (r *service) Error(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.ErrorContext(ctx, req.Msg.GetMessage())
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) Error(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
+	r.log.ErrorContext(context.Background(), in.GetMessage())
+	return nil
 }
 
-func (r *service) ErrorWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.LogAttrs(ctx, slog.LevelError, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) ErrorWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+	r.log.LogAttrs(context.Background(), slog.LevelError, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
+	return nil
 }
 
-func (r *service) Info(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.InfoContext(ctx, req.Msg.GetMessage())
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) Info(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
+	r.log.InfoContext(context.Background(), in.GetMessage())
+	return nil
 }
 
-func (r *service) InfoWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) InfoWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+	r.log.LogAttrs(context.Background(), slog.LevelInfo, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
+	return nil
 }
 
-func (r *service) Warning(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.WarnContext(ctx, req.Msg.GetMessage())
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) Warning(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
+	r.log.WarnContext(context.Background(), in.GetMessage())
+	return nil
 }
 
-func (r *service) WarningWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.LogAttrs(ctx, slog.LevelWarn, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) WarningWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+	r.log.LogAttrs(context.Background(), slog.LevelWarn, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
+	return nil
 }
 
-func (r *service) Debug(ctx context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.DebugContext(ctx, req.Msg.GetMessage())
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) Debug(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
+	r.log.DebugContext(context.Background(), in.GetMessage())
+	return nil
 }
 
-func (r *service) DebugWithContext(ctx context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	r.log.LogAttrs(ctx, slog.LevelDebug, req.Msg.GetMessage(), buildAttrs(req.Msg.GetLogAttrs())...)
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+func (r *service) DebugWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+	r.log.LogAttrs(context.Background(), slog.LevelDebug, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
+	return nil
 }
 
-func (r *service) Log(_ context.Context, req *connect.Request[apploggerV2.LogMessage]) (*connect.Response[apploggerV2.LogResponse], error) {
-	if _, err := io.WriteString(r.stderr, ensureNewline(req.Msg.GetMessage())); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+func (r *service) Log(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
+	if _, err := io.WriteString(r.stderr, ensureNewline(in.GetMessage())); err != nil {
+		return fmt.Errorf("write log message to stderr: %w", err)
 	}
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+	return nil
 }
 
-func (r *service) LogWithContext(_ context.Context, req *connect.Request[apploggerV2.LogEntry]) (*connect.Response[apploggerV2.LogResponse], error) {
-	if _, err := io.WriteString(r.stderr, formatRaw(req.Msg.GetMessage(), req.Msg.GetLogAttrs())); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+func (r *service) LogWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+	if _, err := io.WriteString(r.stderr, formatRaw(in.GetMessage(), in.GetLogAttrs())); err != nil {
+		return fmt.Errorf("write log entry to stderr: %w", err)
 	}
-	return connect.NewResponse(&apploggerV2.LogResponse{}), nil
+	return nil
 }
 
 // formatRaw renders a log entry as a single plain-text line (terminated by a
