@@ -13,7 +13,7 @@ import (
 
 	mocklogger "tests/mock"
 
-	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
+	apploggerV1 "github.com/roadrunner-server/api-go/v6/applogger/v1"
 	applogger "github.com/roadrunner-server/app-logger/v6"
 	configImpl "github.com/roadrunner-server/config/v6"
 	"github.com/roadrunner-server/endure/v2"
@@ -115,11 +115,11 @@ func TestAppLogger(t *testing.T) {
 
 	client := newAppLoggerClient(t, "127.0.0.1:6001")
 
-	var resp apploggerV2.LogResponse
-	require.NoError(t, client.Call("app.Debug", &apploggerV2.LogMessage{Message: "Debug message"}, &resp))
-	require.NoError(t, client.Call("app.Error", &apploggerV2.LogMessage{Message: "Error message"}, &resp))
-	require.NoError(t, client.Call("app.Info", &apploggerV2.LogMessage{Message: "Info message"}, &resp))
-	require.NoError(t, client.Call("app.Warning", &apploggerV2.LogMessage{Message: "Warning message"}, &resp))
+	var ok bool
+	require.NoError(t, client.Call("app.Debug", "Debug message", &ok))
+	require.NoError(t, client.Call("app.Error", "Error message", &ok))
+	require.NoError(t, client.Call("app.Info", "Info message", &ok))
+	require.NoError(t, client.Call("app.Warning", "Warning message", &ok))
 
 	time.Sleep(time.Second)
 	stop()
@@ -155,14 +155,14 @@ func TestAppLoggerWithContext(t *testing.T) {
 
 	entries := []struct {
 		method string
-		entry  *apploggerV2.LogEntry
+		entry  *apploggerV1.LogEntry
 	}{
-		{"app.DebugWithContext", &apploggerV2.LogEntry{Message: "Debug context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "component", Value: "test"}}}},
-		{"app.ErrorWithContext", &apploggerV2.LogEntry{Message: "Error context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "error_code", Value: "500"}, {Key: "trace", Value: "stack_trace_here"}}}},
-		{"app.InfoWithContext", &apploggerV2.LogEntry{Message: "Info context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "request_id", Value: "12345"}, {Key: "user", Value: "john"}}}},
-		{"app.WarningWithContext", &apploggerV2.LogEntry{Message: "Warning context message", LogAttrs: []*apploggerV2.LogAttrs{{Key: "threshold", Value: "90"}}}},
+		{"app.DebugWithContext", &apploggerV1.LogEntry{Message: "Debug context message", LogAttrs: []*apploggerV1.LogAttrs{{Key: "component", Value: "test"}}}},
+		{"app.ErrorWithContext", &apploggerV1.LogEntry{Message: "Error context message", LogAttrs: []*apploggerV1.LogAttrs{{Key: "error_code", Value: "500"}, {Key: "trace", Value: "stack_trace_here"}}}},
+		{"app.InfoWithContext", &apploggerV1.LogEntry{Message: "Info context message", LogAttrs: []*apploggerV1.LogAttrs{{Key: "request_id", Value: "12345"}, {Key: "user", Value: "john"}}}},
+		{"app.WarningWithContext", &apploggerV1.LogEntry{Message: "Warning context message", LogAttrs: []*apploggerV1.LogAttrs{{Key: "threshold", Value: "90"}}}},
 	}
-	var resp apploggerV2.LogResponse
+	var resp apploggerV1.Response
 	for _, e := range entries {
 		require.NoError(t, client.Call(e.method, e.entry, &resp))
 	}

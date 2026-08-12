@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
-	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
+	apploggerV1 "github.com/roadrunner-server/api-go/v6/applogger/v1"
 )
 
 // Subset of PSR-3 implemented over net/rpc (goridge). Each level has a
@@ -21,54 +21,54 @@ type service struct {
 	stderr io.Writer // injectable so the error path in Log/LogWithContext is testable
 }
 
-func (r *service) Error(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
-	r.log.ErrorContext(context.Background(), in.GetMessage())
+func (r *service) Error(in string, _ *bool) error {
+	r.log.ErrorContext(context.Background(), in)
 	return nil
 }
 
-func (r *service) ErrorWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+func (r *service) ErrorWithContext(in *apploggerV1.LogEntry, _ *apploggerV1.Response) error {
 	r.log.LogAttrs(context.Background(), slog.LevelError, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
 	return nil
 }
 
-func (r *service) Info(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
-	r.log.InfoContext(context.Background(), in.GetMessage())
+func (r *service) Info(in string, _ *bool) error {
+	r.log.InfoContext(context.Background(), in)
 	return nil
 }
 
-func (r *service) InfoWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+func (r *service) InfoWithContext(in *apploggerV1.LogEntry, _ *apploggerV1.Response) error {
 	r.log.LogAttrs(context.Background(), slog.LevelInfo, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
 	return nil
 }
 
-func (r *service) Warning(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
-	r.log.WarnContext(context.Background(), in.GetMessage())
+func (r *service) Warning(in string, _ *bool) error {
+	r.log.WarnContext(context.Background(), in)
 	return nil
 }
 
-func (r *service) WarningWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+func (r *service) WarningWithContext(in *apploggerV1.LogEntry, _ *apploggerV1.Response) error {
 	r.log.LogAttrs(context.Background(), slog.LevelWarn, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
 	return nil
 }
 
-func (r *service) Debug(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
-	r.log.DebugContext(context.Background(), in.GetMessage())
+func (r *service) Debug(in string, _ *bool) error {
+	r.log.DebugContext(context.Background(), in)
 	return nil
 }
 
-func (r *service) DebugWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+func (r *service) DebugWithContext(in *apploggerV1.LogEntry, _ *apploggerV1.Response) error {
 	r.log.LogAttrs(context.Background(), slog.LevelDebug, in.GetMessage(), buildAttrs(in.GetLogAttrs())...)
 	return nil
 }
 
-func (r *service) Log(in *apploggerV2.LogMessage, _ *apploggerV2.LogResponse) error {
-	if _, err := io.WriteString(r.stderr, ensureNewline(in.GetMessage())); err != nil {
+func (r *service) Log(in string, _ *bool) error {
+	if _, err := io.WriteString(r.stderr, ensureNewline(in)); err != nil {
 		return fmt.Errorf("write log message to stderr: %w", err)
 	}
 	return nil
 }
 
-func (r *service) LogWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogResponse) error {
+func (r *service) LogWithContext(in *apploggerV1.LogEntry, _ *apploggerV1.Response) error {
 	if _, err := io.WriteString(r.stderr, formatRaw(in.GetMessage(), in.GetLogAttrs())); err != nil {
 		return fmt.Errorf("write log entry to stderr: %w", err)
 	}
@@ -78,7 +78,7 @@ func (r *service) LogWithContext(in *apploggerV2.LogEntry, _ *apploggerV2.LogRes
 // formatRaw renders a log entry as a single plain-text line (terminated by a
 // newline) for the raw stderr path, joining attrs as comma-separated key:value
 // pairs.
-func formatRaw(msg string, args []*apploggerV2.LogAttrs) string {
+func formatRaw(msg string, args []*apploggerV1.LogAttrs) string {
 	if len(args) == 0 {
 		return ensureNewline(msg)
 	}
@@ -110,7 +110,7 @@ func ensureNewline(s string) string {
 
 // buildAttrs converts protobuf LogAttrs into typed slog.Attr values,
 // enabling LogAttrs calls that avoid the []any boxing overhead.
-func buildAttrs(args []*apploggerV2.LogAttrs) []slog.Attr {
+func buildAttrs(args []*apploggerV1.LogAttrs) []slog.Attr {
 	attrs := make([]slog.Attr, len(args))
 	for i, a := range args {
 		attrs[i] = slog.String(a.GetKey(), a.GetValue())
