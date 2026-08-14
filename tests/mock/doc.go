@@ -1,3 +1,3 @@
-// Package mocklogger provides test utilities including an in-memory zap core
-// observer for capturing and asserting log entries in tests.
+// Package mocklogger provides test utilities including an in-memory slog
+// handler for capturing and asserting log records in tests.
 package mocklogger

@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"testing"
 
-	apploggerV2 "github.com/roadrunner-server/api-go/v6/applogger/v2"
+	apploggerV1 "github.com/roadrunner-server/api-go/v6/applogger/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,7 +38,7 @@ func TestFormatRaw(t *testing.T) {
 	tests := []struct {
 		name string
 		msg  string
-		args []*apploggerV2.LogAttrs
+		args []*apploggerV1.LogAttrs
 		want string
 	}{
 		{
@@ -50,7 +50,7 @@ func TestFormatRaw(t *testing.T) {
 		{
 			name: "empty args",
 			msg:  "hello",
-			args: []*apploggerV2.LogAttrs{},
+			args: []*apploggerV1.LogAttrs{},
 			want: "hello\n",
 		},
 		{
@@ -60,15 +60,31 @@ func TestFormatRaw(t *testing.T) {
 			want: "hello\n",
 		},
 		{
+			// An empty message is reachable from PHP: $logger->log('').
+			name: "empty message no args",
+			msg:  "",
+			args: nil,
+			want: "\n",
+		},
+		{
+			// The shape PHP sends for $logger->log("msg\n", ['source' => 'worker']):
+			// the newline inside the message is kept, so the attrs land on a
+			// second line.
+			name: "newline-terminated message with attrs",
+			msg:  "Log context message\n",
+			args: []*apploggerV1.LogAttrs{{Key: "source", Value: "worker"}},
+			want: "Log context message\n source:worker\n",
+		},
+		{
 			name: "single attr",
 			msg:  "hello",
-			args: []*apploggerV2.LogAttrs{{Key: "k1", Value: "v1"}},
+			args: []*apploggerV1.LogAttrs{{Key: "k1", Value: "v1"}},
 			want: "hello k1:v1\n",
 		},
 		{
 			name: "multiple attrs",
 			msg:  "msg",
-			args: []*apploggerV2.LogAttrs{
+			args: []*apploggerV1.LogAttrs{
 				{Key: "k1", Value: "v1"},
 				{Key: "k2", Value: "v2"},
 			},
@@ -77,7 +93,7 @@ func TestFormatRaw(t *testing.T) {
 		{
 			name: "special chars in values",
 			msg:  "msg",
-			args: []*apploggerV2.LogAttrs{
+			args: []*apploggerV1.LogAttrs{
 				{Key: "url", Value: "http://example.com:8080"},
 				{Key: "list", Value: "a,b,c"},
 			},
@@ -100,16 +116,16 @@ func TestRPCLogLevels(t *testing.T) {
 		level  slog.Level
 	}{
 		{"Error", func(r *service, msg string) error {
-			return r.Error(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
+			return r.Error(msg, nil)
 		}, slog.LevelError},
 		{"Info", func(r *service, msg string) error {
-			return r.Info(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
+			return r.Info(msg, nil)
 		}, slog.LevelInfo},
 		{"Warning", func(r *service, msg string) error {
-			return r.Warning(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
+			return r.Warning(msg, nil)
 		}, slog.LevelWarn},
 		{"Debug", func(r *service, msg string) error {
-			return r.Debug(&apploggerV2.LogMessage{Message: msg}, &apploggerV2.LogResponse{})
+			return r.Debug(msg, nil)
 		}, slog.LevelDebug},
 	}
 
@@ -131,20 +147,20 @@ func TestRPCLogLevels(t *testing.T) {
 func TestRPCWithContext(t *testing.T) {
 	tests := []struct {
 		name   string
-		method func(r *service, in *apploggerV2.LogEntry) error
+		method func(r *service, in *apploggerV1.LogEntry) error
 		level  slog.Level
 	}{
-		{"ErrorWithContext", func(r *service, in *apploggerV2.LogEntry) error {
-			return r.ErrorWithContext(in, &apploggerV2.LogResponse{})
+		{"ErrorWithContext", func(r *service, in *apploggerV1.LogEntry) error {
+			return r.ErrorWithContext(in, &apploggerV1.Response{})
 		}, slog.LevelError},
-		{"InfoWithContext", func(r *service, in *apploggerV2.LogEntry) error {
-			return r.InfoWithContext(in, &apploggerV2.LogResponse{})
+		{"InfoWithContext", func(r *service, in *apploggerV1.LogEntry) error {
+			return r.InfoWithContext(in, &apploggerV1.Response{})
 		}, slog.LevelInfo},
-		{"WarningWithContext", func(r *service, in *apploggerV2.LogEntry) error {
-			return r.WarningWithContext(in, &apploggerV2.LogResponse{})
+		{"WarningWithContext", func(r *service, in *apploggerV1.LogEntry) error {
+			return r.WarningWithContext(in, &apploggerV1.Response{})
 		}, slog.LevelWarn},
-		{"DebugWithContext", func(r *service, in *apploggerV2.LogEntry) error {
-			return r.DebugWithContext(in, &apploggerV2.LogResponse{})
+		{"DebugWithContext", func(r *service, in *apploggerV1.LogEntry) error {
+			return r.DebugWithContext(in, &apploggerV1.Response{})
 		}, slog.LevelDebug},
 	}
 
@@ -153,9 +169,9 @@ func TestRPCWithContext(t *testing.T) {
 			h := &captureHandler{}
 			s := &service{log: slog.New(h)}
 
-			entry := &apploggerV2.LogEntry{
+			entry := &apploggerV1.LogEntry{
 				Message:  "ctx message",
-				LogAttrs: []*apploggerV2.LogAttrs{{Key: "component", Value: "test"}},
+				LogAttrs: []*apploggerV1.LogAttrs{{Key: "component", Value: "test"}},
 			}
 
 			err := tt.method(s, entry)
@@ -176,16 +192,16 @@ func TestRPCWithContextMultipleAttrs(t *testing.T) {
 	h := &captureHandler{}
 	s := &service{log: slog.New(h)}
 
-	entry := &apploggerV2.LogEntry{
+	entry := &apploggerV1.LogEntry{
 		Message: "multi attrs",
-		LogAttrs: []*apploggerV2.LogAttrs{
+		LogAttrs: []*apploggerV1.LogAttrs{
 			{Key: "k1", Value: "v1"},
 			{Key: "k2", Value: "v2"},
 			{Key: "k3", Value: "v3"},
 		},
 	}
 
-	err := s.InfoWithContext(entry, &apploggerV2.LogResponse{})
+	err := s.InfoWithContext(entry, &apploggerV1.Response{})
 	require.NoError(t, err)
 
 	require.Len(t, h.records, 1)
@@ -195,6 +211,26 @@ func TestRPCWithContextMultipleAttrs(t *testing.T) {
 	assert.Equal(t, "v1", attrs["k1"])
 	assert.Equal(t, "v2", attrs["k2"])
 	assert.Equal(t, "v3", attrs["k3"])
+}
+
+// The PHP client drops context values it cannot stringify, so an entry can
+// arrive with an empty attr slice.
+func TestRPCWithContextEmptyAttrs(t *testing.T) {
+	h := &captureHandler{}
+	s := &service{log: slog.New(h)}
+
+	entry := &apploggerV1.LogEntry{
+		Message:  "no attrs",
+		LogAttrs: []*apploggerV1.LogAttrs{},
+	}
+
+	err := s.InfoWithContext(entry, &apploggerV1.Response{})
+	require.NoError(t, err)
+
+	require.Len(t, h.records, 1)
+	assert.Equal(t, "no attrs", h.records[0].Message)
+	assert.Zero(t, h.records[0].NumAttrs())
+	assert.Empty(t, collectAttrs(h.records[0]))
 }
 
 // collectAttrs walks a slog.Record's attributes into a flat map of string values.
@@ -211,7 +247,7 @@ func TestRPCLog(t *testing.T) {
 	var buf bytes.Buffer
 	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
 
-	err := s.Log(&apploggerV2.LogMessage{Message: "hello stderr\n"}, &apploggerV2.LogResponse{})
+	err := s.Log("hello stderr\n", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "hello stderr\n", buf.String())
@@ -221,14 +257,27 @@ func TestRPCLogWithContext(t *testing.T) {
 	var buf bytes.Buffer
 	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
 
-	entry := &apploggerV2.LogEntry{
+	entry := &apploggerV1.LogEntry{
 		Message:  "hello",
-		LogAttrs: []*apploggerV2.LogAttrs{{Key: "k", Value: "v"}},
+		LogAttrs: []*apploggerV1.LogAttrs{{Key: "k", Value: "v"}},
 	}
-	err := s.LogWithContext(entry, &apploggerV2.LogResponse{})
+	err := s.LogWithContext(entry, &apploggerV1.Response{})
 	require.NoError(t, err)
 
 	assert.Equal(t, "hello k:v\n", buf.String())
+}
+
+// The shape PHP sends for $logger->log("msg\n"): a newline-terminated message
+// and no context, which must reach stderr unchanged.
+func TestRPCLogWithContextNoAttrs(t *testing.T) {
+	var buf bytes.Buffer
+	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
+
+	entry := &apploggerV1.LogEntry{Message: "raw line\n"}
+	err := s.LogWithContext(entry, &apploggerV1.Response{})
+	require.NoError(t, err)
+
+	assert.Equal(t, "raw line\n", buf.String())
 }
 
 func TestRPCLogWriteFailure(t *testing.T) {
@@ -236,13 +285,13 @@ func TestRPCLogWriteFailure(t *testing.T) {
 	s := &service{log: slog.New(slog.DiscardHandler), stderr: &errWriter{err: want}}
 
 	t.Run("Log", func(t *testing.T) {
-		err := s.Log(&apploggerV2.LogMessage{Message: "x"}, &apploggerV2.LogResponse{})
+		err := s.Log("x", nil)
 		require.Error(t, err)
 		assert.ErrorIs(t, err, want)
 	})
 
 	t.Run("LogWithContext", func(t *testing.T) {
-		err := s.LogWithContext(&apploggerV2.LogEntry{Message: "x"}, &apploggerV2.LogResponse{})
+		err := s.LogWithContext(&apploggerV1.LogEntry{Message: "x"}, &apploggerV1.Response{})
 		require.Error(t, err)
 		assert.ErrorIs(t, err, want)
 	})

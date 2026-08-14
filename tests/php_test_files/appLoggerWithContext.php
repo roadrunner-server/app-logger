@@ -5,10 +5,9 @@ require __DIR__ . "/vendor/autoload.php";
 
 use Spiral\Goridge;
 use RoadRunner\Logger\Logger;
-use Spiral\RoadRunner;
 
 $rpc = new Goridge\RPC\RPC(
-    Goridge\Relay::create('tcp://127.0.0.1:6002')
+    Goridge\Relay::create('tcp://127.0.0.1:6302')
 );
 
 $logger = new Logger($rpc);
@@ -37,22 +36,3 @@ $logger->warning('Warning context message', ['threshold' => '90']);
  * log with context attributes (writes to stderr)
  */
 $logger->log("Log context message\n", ['source' => 'worker']);
-
-$worker = RoadRunner\Worker::create();
-$psr7 = new RoadRunner\Http\PSR7Worker(
-    $worker,
-    new \Nyholm\Psr7\Factory\Psr17Factory(),
-    new \Nyholm\Psr7\Factory\Psr17Factory(),
-    new \Nyholm\Psr7\Factory\Psr17Factory()
-);
-
-while ($req = $psr7->waitRequest()) {
-    try {
-        $resp = new \Nyholm\Psr7\Response();
-        $resp->getBody()->write("hello world");
-
-        $psr7->respond($resp);
-    } catch (\Throwable $e) {
-        $psr7->getWorker()->error((string)$e);
-    }
-}
