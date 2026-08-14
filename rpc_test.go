@@ -60,6 +60,22 @@ func TestFormatRaw(t *testing.T) {
 			want: "hello\n",
 		},
 		{
+			// An empty message is reachable from PHP: $logger->log('').
+			name: "empty message no args",
+			msg:  "",
+			args: nil,
+			want: "\n",
+		},
+		{
+			// The shape PHP sends for $logger->log("msg\n", ['source' => 'worker']):
+			// the newline inside the message is kept, so the attrs land on a
+			// second line.
+			name: "newline-terminated message with attrs",
+			msg:  "Log context message\n",
+			args: []*apploggerV1.LogAttrs{{Key: "source", Value: "worker"}},
+			want: "Log context message\n source:worker\n",
+		},
+		{
 			name: "single attr",
 			msg:  "hello",
 			args: []*apploggerV1.LogAttrs{{Key: "k1", Value: "v1"}},
@@ -197,6 +213,26 @@ func TestRPCWithContextMultipleAttrs(t *testing.T) {
 	assert.Equal(t, "v3", attrs["k3"])
 }
 
+// The PHP client drops context values it cannot stringify, so an entry can
+// arrive with an empty attr slice.
+func TestRPCWithContextEmptyAttrs(t *testing.T) {
+	h := &captureHandler{}
+	s := &service{log: slog.New(h)}
+
+	entry := &apploggerV1.LogEntry{
+		Message:  "no attrs",
+		LogAttrs: []*apploggerV1.LogAttrs{},
+	}
+
+	err := s.InfoWithContext(entry, &apploggerV1.Response{})
+	require.NoError(t, err)
+
+	require.Len(t, h.records, 1)
+	assert.Equal(t, "no attrs", h.records[0].Message)
+	assert.Zero(t, h.records[0].NumAttrs())
+	assert.Empty(t, collectAttrs(h.records[0]))
+}
+
 // collectAttrs walks a slog.Record's attributes into a flat map of string values.
 func collectAttrs(r slog.Record) map[string]string {
 	out := map[string]string{}
@@ -229,6 +265,19 @@ func TestRPCLogWithContext(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "hello k:v\n", buf.String())
+}
+
+// The shape PHP sends for $logger->log("msg\n"): a newline-terminated message
+// and no context, which must reach stderr unchanged.
+func TestRPCLogWithContextNoAttrs(t *testing.T) {
+	var buf bytes.Buffer
+	s := &service{log: slog.New(slog.DiscardHandler), stderr: &buf}
+
+	entry := &apploggerV1.LogEntry{Message: "raw line\n"}
+	err := s.LogWithContext(entry, &apploggerV1.Response{})
+	require.NoError(t, err)
+
+	assert.Equal(t, "raw line\n", buf.String())
 }
 
 func TestRPCLogWriteFailure(t *testing.T) {
