@@ -58,25 +58,31 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-go-
 
+      - name: Create folders
+        run: |
+          mkdir -p ./tests/coverage-ci
+
       - name: Install Go dependencies
         run: go mod download
 
       - name: Run unit tests with coverage
         run: |
-          mkdir -p ./tests/coverage-ci
-          go test -timeout 5m -v -race -cover -tags=debug -failfast \
-            -coverprofile=./tests/coverage-ci/applogger_unit.out \
-            -covermode=atomic ./...
+          go test -timeout 5m -v -race -cover -tags=debug -coverpkg=./... -coverprofile=./tests/coverage-ci/applogger_unit.out -covermode=atomic ./...
 
       - name: Run integration tests with coverage
+        env:
+          # php with ext-sockets and the composer deps are installed above, so the
+          # PHP client tests must fail here rather than skip.
+          RR_APP_LOGGER_REQUIRE_PHP: 1
         run: |
-          go test -timeout 20m -v -race -cover -tags=debug -failfast -coverpkg=github.com/roadrunner-server/app-logger/v6 -coverprofile=./tests/coverage-ci/applogger.out -covermode=atomic ./tests/app_logger_test.go
+          cd tests
+          go test -timeout 5m -v -race -cover -tags=debug -coverpkg=github.com/roadrunner-server/app-logger/v6/... -coverprofile=./coverage-ci/applogger.out -covermode=atomic .
 
       - name: Archive code coverage results
         uses: actions/upload-artifact@v7
         with:
           name: coverage
-          path: ./tests/coverage-ci/*.out
+          path: ./tests/coverage-ci
 
   codecov:
     name: Upload codecov
