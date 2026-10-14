@@ -2,10 +2,10 @@ module github.com/roadrunner-server/app-logger/v6
 
 go 1.27
 
-toolchain go1.27.1
+toolchain go1.27.2
 
 require (
-	github.com/roadrunner-server/api-go/v6 v6.0.0-beta.15
+	github.com/roadrunner-server/api-go/v6 v6.1.0
 	github.com/stretchr/testify v1.12.1
 )
 
